@@ -11,3 +11,6 @@ backend/*.pyc
 # Environment variables (secret keys)
 frontend/.env.local
 .env
+
+__pycache__/
+*.pyc

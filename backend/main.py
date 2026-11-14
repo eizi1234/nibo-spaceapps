@@ -57,3 +57,8 @@ def predict(
 def predict_from_features(astronaut_id: str, features: WearableFeatures):
     """Dipakai nanti untuk data wearable asli / slider what-if dari frontend."""
     return _build_response(astronaut_id, features, "custom")
+
+
+
+from app.api import router as api_router
+app.include_router(api_router)
