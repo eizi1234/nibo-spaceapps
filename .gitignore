@@ -39,3 +39,13 @@ grouped_approval.json
 agent3_final_model.zip
 agent3_final_reports.zip
 agent3_review_tables.zip
+
+# PMData / Agent 4: private generated artifacts
+/sleep_outputs/
+/agent4_delivery/
+/agent4_sleep/
+/agent4_*results.zip
+/agent4_final_model.zip
+/agent4_final_reports.zip
+/sleep_approval*.json
+/sleep-*

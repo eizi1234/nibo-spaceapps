@@ -195,8 +195,8 @@ export default function DailyCheckInPage() {
     }
   }
 
-  const lastNightSleep =
-    overview?.sleep_7d[overview.sleep_7d.length - 1]?.hours ?? overview?.baseline.sleep_hours ?? 5.0;
+  const lastNight = overview?.sleep_7d[overview.sleep_7d.length - 1] ?? null;
+  const lastNightSleep = lastNight?.hours ?? null;
   const affectedTask = result?.tasks.find((t) => t.status !== "GO") ?? result?.tasks[0];
 
   const pageTitle =
@@ -221,7 +221,7 @@ export default function DailyCheckInPage() {
     {
       n: 3 as const,
       title: "Result",
-      sub: "Your readiness today",
+      sub: "Your demo readiness today",
     },
   ];
 
@@ -304,7 +304,7 @@ export default function DailyCheckInPage() {
                   demoDuration === 180 ? "bg-[#0b3d91] text-white" : "bg-soft text-ink-secondary"
                 }`}
               >
-                3 min (ISS standard)
+                3 min (longer demo, not a validated PVT)
               </button>
             </div>
           </div>
@@ -350,9 +350,13 @@ export default function DailyCheckInPage() {
                     </span>
                   </div>
                   <p className="mt-2 text-2xl font-extrabold text-ink">
-                    {Math.floor(lastNightSleep)} h {Math.round((lastNightSleep % 1) * 60)} min
+                    {lastNightSleep != null
+                      ? `${Math.floor(lastNightSleep)} h ${Math.round((lastNightSleep % 1) * 60)} min`
+                      : "Unavailable"}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-ink-muted">23:40 to 04:40, woke up 3 times</p>
+                  <p className="mt-0.5 text-[11px] text-ink-muted">
+                    {lastNight ? `${lastNight.actual_bed} to ${lastNight.actual_wake}, synthetic wearable` : "No wearable sleep record"}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl bg-[#f4f7fe] p-4">
@@ -364,8 +368,8 @@ export default function DailyCheckInPage() {
                       Auto
                     </span>
                   </div>
-                  <p className="mt-2 text-2xl font-extrabold text-ink">75 min</p>
-                  <p className="mt-0.5 text-[11px] text-ink-muted">Cycling 45 min, treadmill 30 min</p>
+                  <p className="mt-2 text-2xl font-extrabold text-ink">Unavailable</p>
+                  <p className="mt-0.5 text-[11px] text-ink-muted">Not provided by the backend yet</p>
                 </div>
               </div>
             </div>
@@ -501,10 +505,10 @@ export default function DailyCheckInPage() {
                 <h3 className="text-sm font-bold">Why we ask</h3>
               </div>
               <p className="mt-3 text-xs leading-relaxed">
-                Sleep and sleep debt are the biggest drivers of your readiness score.
+                Your answers adjust today&apos;s demo readiness score using simple rules. They do not change the next-day fatigue model.
               </p>
               <p className="mt-2 text-xs leading-relaxed">
-                Coffee and exercise raise heart rate for a while, so those readings will not raise an alarm.
+                Coffee, exercise and sleep medication are handled by illustrative rules, not clinical guarantees.
               </p>
             </div>
 
@@ -522,7 +526,7 @@ export default function DailyCheckInPage() {
                     <span className="flex items-center gap-2 font-medium text-ink-secondary">
                       <Icon name="sun" className="text-brand" /> HRV
                     </span>
-                    <strong className="text-ink">55 ms</strong>
+                    <strong className="text-ink">{overview.baseline.hrv_rmssd_ms != null ? `${Math.round(overview.baseline.hrv_rmssd_ms)} ms` : "Unavailable"}</strong>
                   </div>
                   <div className="flex items-center justify-between rounded-xl bg-[#f4f7fe] px-3.5 py-2.5">
                     <span className="flex items-center gap-2 font-medium text-ink-secondary">
@@ -531,7 +535,7 @@ export default function DailyCheckInPage() {
                     <strong className="text-ink">{overview.baseline.resting_hr_bpm} bpm</strong>
                   </div>
                 </div>
-                <p className="mt-3 text-[11px] text-ink-muted">Today you are below this on all three.</p>
+                <p className="mt-3 text-[11px] text-ink-muted">Personal baseline from synthetic history, context only.</p>
               </div>
             )}
           </aside>
@@ -563,8 +567,8 @@ export default function DailyCheckInPage() {
                   />
                 </svg>
                 <div className="absolute bottom-2 text-center">
-                  <span className="text-3xl font-extrabold leading-none">{scorePct}%</span>
-                  <p className="mt-0.5 text-[10px] text-white/75">readiness</p>
+                  <span className="text-3xl font-extrabold leading-none">{scorePct}</span>
+                  <p className="mt-0.5 text-[10px] text-white/75">demo readiness</p>
                 </div>
                 <div className="flex w-full justify-between px-2 text-[10px] text-white/60">
                   <span>0</span>
@@ -575,12 +579,12 @@ export default function DailyCheckInPage() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <GateBadge gate={result.readiness_gate} tone="white" />
-                  <h2 className="text-base font-bold">Readiness today</h2>
+                  <h2 className="text-base font-bold">Demo readiness today</h2>
                 </div>
                 <p className="text-xs leading-relaxed text-white/85">
                   {result.readiness_gate === "GO"
-                    ? "Biometrics and reaction speed look strong. Cleared for high-priority tasks."
-                    : "Not ready for high-risk tasks yet, mostly because of sleep debt and circadian shift."}
+                    ? "Demo rules show no flags for high-priority tasks. This is decision support, not a clearance."
+                    : "Demo rules suggest holding off on high-risk tasks. Rule-based decision support, not a medical assessment."}
                 </p>
               </div>
             </div>
@@ -594,7 +598,7 @@ export default function DailyCheckInPage() {
                   </span>
                   <div>
                     <p className="text-xs font-medium text-ink-muted">Sleep</p>
-                    <p className="text-xl font-extrabold text-hold">{result.sleep_hours.toFixed(1)} h</p>
+                    <p className={`text-xl font-extrabold ${overview && result.sleep_hours < overview.baseline.sleep_hours - 1 ? "text-hold" : "text-ink"}`}>{result.sleep_hours.toFixed(1)} h</p>
                     <p className="text-[11px] text-ink-muted">Compared to your baseline</p>
                   </div>
                 </div>
@@ -607,7 +611,7 @@ export default function DailyCheckInPage() {
                     <p className="text-xs font-medium text-ink-muted">Reaction test</p>
                     <p className="text-xl font-extrabold text-caution">{Math.round(result.reaction_ms)} ms</p>
                     <p className="text-[11px] text-ink-muted">
-                      Your usual: {Math.round(result.reaction_baseline_ms)} ms
+                      Your usual: {Math.round(result.reaction_baseline_ms)} ms · rule-based input
                     </p>
                   </div>
                 </div>
@@ -802,7 +806,7 @@ export default function DailyCheckInPage() {
                       );
                     })}
                     <span className="rounded-full bg-[#e6f23d] px-3 py-1.5 text-[11px] font-extrabold text-[#0a1b4d]">
-                      AI suggests 2 h
+                      Suggested 2 h (rule)
                     </span>
                   </div>
                 </div>
@@ -863,4 +867,4 @@ export default function DailyCheckInPage() {
       )}
     </div>
   );
-}
+}

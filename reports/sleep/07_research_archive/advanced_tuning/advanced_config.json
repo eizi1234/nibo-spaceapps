@@ -1,0 +1,71 @@
+{
+  "experiment": "Advanced CatBoost Tuning",
+  "model": "catboost",
+  "device": "gpu",
+  "seed": 42,
+  "studies": {
+    "T1": {
+      "features": "F5",
+      "loss": "RMSE"
+    },
+    "T2": {
+      "features": "F5",
+      "loss": "MAE"
+    },
+    "T3": {
+      "features": "F6",
+      "loss": "RMSE"
+    },
+    "T4": {
+      "features": "F6",
+      "loss": "MAE"
+    }
+  },
+  "trials_per_study": 40,
+  "search_space": {
+    "depth": [
+      3,
+      8
+    ],
+    "learning_rate": [
+      0.01,
+      0.15
+    ],
+    "l2_leaf_reg": [
+      0.1,
+      30.0
+    ],
+    "iterations": [
+      50,
+      500
+    ]
+  },
+  "sampling": "Optuna TPESampler",
+  "selection_metric": "pooled_internal_oof_mae",
+  "original_parameters": {
+    "depth": 6,
+    "learning_rate": 0.059718183457477945,
+    "l2_leaf_reg": 1.0525841796041846,
+    "iterations": 126
+  },
+  "folds": [
+    {
+      "name": "December",
+      "start": "2019-12-01",
+      "end": "2020-01-01"
+    },
+    {
+      "name": "January",
+      "start": "2020-01-01",
+      "end": "2020-02-01"
+    }
+  ],
+  "data_fingerprints": {
+    "preprocessing_fingerprint": "df1cbda27f1148256de19d2981fdaf0c98ac284fb850be647eeb82580383d4e2",
+    "schema_fingerprint": "e1f1804414cbab43cb35dbdc32ed6439dd339fb793b4894a16e8dcc6622a54b3",
+    "split_fingerprint": "38477d278ade27e147d5f0122a6c71922fc72746468a7f0eb1a5ce9c5705863d",
+    "dataset_fingerprint": "b484bae8ff97b19302c3356f3b29a3df1ddb91499624c78fe7e56e5b1c93b4f8"
+  },
+  "config_fingerprint": "bbcbb77d0a97350eb9746f64650fd09933fd2e41264f5577260fec4597d83cdf",
+  "test_used": false
+}

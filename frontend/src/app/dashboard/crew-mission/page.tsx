@@ -56,17 +56,12 @@ function formatDurationShort(mins: number) {
   return Number.isInteger(h) ? `${h} h` : `${h.toFixed(1)} h`;
 }
 
-function buildShiftForecast(member: CrewMember): ReadinessGate[] {
-  const baseScore = member.score ?? 50;
-  const shift = member.clock_shift_hours ?? 0;
-  return Array.from({ length: 12 }, (_, idx) => {
-    const recovery = idx * 3.8;
-    const circadianDip = idx % 4 === 0 ? -6 : idx % 4 === 2 ? 4 : 0;
-    const projected = baseScore + recovery - Math.max(0, shift - 1) * 2 + circadianDip;
-    if (projected >= 70) return "GO";
-    if (projected >= 45) return "CAUTION";
-    return "HOLD";
-  });
+function fmtScore(v: number | null | undefined) {
+  return v != null ? String(Math.round(v)) : "n/a";
+}
+
+function shiftCells(member: CrewMember): (ReadinessGate | null)[] {
+  return Array.from({ length: 12 }, (_, idx) => member.forecast.find((f) => f.index === idx)?.gate ?? null);
 }
 
 type ModalContextState = {
@@ -76,7 +71,7 @@ type ModalContextState = {
   requesterName: string;
   requesterTitle: string;
   requesterGate: ReadinessGate;
-  requesterScore: number;
+  requesterScore: number | null;
   reasonQuote: string;
   sentTime: string;
   taskName: string;
@@ -103,11 +98,17 @@ export default function CrewMissionPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const ctxKey = `${scenario}:${day}`;
+  const [seenKey, setSeenKey] = useState(ctxKey);
+  if (seenKey !== ctxKey) {
+    setSeenKey(ctxKey);
+    setLoading(true);
+    setDismissedSwaps({});
+  }
+
   useEffect(() => {
     let cancelled = false;
     const ctx = { scenario, day };
-    setLoading(true);
-    setDismissedSwaps({});
 
     Promise.all([
       api.crew(ctx).catch(() => ({ members: [] as CrewMember[] })),
@@ -155,10 +156,10 @@ export default function CrewMissionPage() {
       requesterName: fromM?.user.name ?? s.from_user_name,
       requesterTitle: fromM?.user.title ?? "Crew specialist",
       requesterGate: fromM?.gate ?? "HOLD",
-      requesterScore: Math.round(fromM?.score ?? 38),
+      requesterScore: fromM?.score != null ? Math.round(fromM.score) : null,
       reasonQuote:
         s.reason ||
-        `"I slept ${fromM?.sleep_hours?.toFixed(1) ?? "4.5"} hours after the late shift and my reaction test was slow. Can I rest before ${s.task_name.toLowerCase()}?"`,
+        `Suggested by demo rules: ${s.task_name} needs a higher readiness score than ${s.from_user_name} currently has.`,
       sentTime: "Sent 07:12",
       taskName: s.task_name,
       taskWindow: `${s.when_label} to 12:00`,
@@ -184,7 +185,7 @@ export default function CrewMissionPage() {
       requesterName: fromM?.user.name ?? reqName,
       requesterTitle: fromM?.user.title ?? "Medical officer",
       requesterGate: fromM?.gate ?? "HOLD",
-      requesterScore: Math.round(fromM?.score ?? 38),
+      requesterScore: fromM?.score != null ? Math.round(fromM.score) : null,
       reasonQuote: `"${r.reason}"`,
       sentTime: "Sent 07:12",
       taskName: "Sample processing",
@@ -249,7 +250,7 @@ export default function CrewMissionPage() {
         .filter((m) => m.user.name !== modal.requesterName)
         .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     : [];
-  const aiPickMember = sortedCandidates.find((m) => (m.score ?? 0) >= (modal?.needsScore ?? 50));
+  const aiPickMember = sortedCandidates.find((m) => m.score != null && m.score >= (modal?.needsScore ?? 50));
   const selectedMember =
     members.find((m) => m.user.id === modal?.selectedAssigneeId) ?? aiPickMember ?? sortedCandidates[0];
 
@@ -258,7 +259,7 @@ export default function CrewMissionPage() {
       {/* Header matching Figma */}
       <header className="flex flex-col gap-0.5">
         <p className="text-[13px] font-medium text-ink-secondary">
-          {members.length || 4} crew members on board
+          {members.length} crew members on board
         </p>
         <h1 className="text-[28px] font-bold leading-[1.2] tracking-[-0.42px] text-ink">Crew</h1>
       </header>
@@ -316,15 +317,14 @@ export default function CrewMissionPage() {
 
       {/* 4 Crew Member Cards (Matching Figma) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {members.map((m, idx) => {
+        {members.map((m) => {
           const isYou = m.user.id === user.id;
           const canView = isYou || m.user.sharing === "full";
-          const score = Math.round(m.score ?? (m.gate === "GO" ? 76 : m.gate === "CAUTION" ? 55 : 34));
-          const sleepH = m.sleep_hours ?? (m.gate === "GO" ? 7.2 : 4.6);
-          const hrvVal = m.gate === "GO" ? 55 : m.gate === "CAUTION" ? 41 : 28 + idx * 2;
-          const reactionVal = m.gate === "GO" ? 250 : m.gate === "CAUTION" ? 278 : 286 + idx * 8;
-          const moodLabel =
-            m.gate === "GO" ? "Good" : m.gate === "CAUTION" ? "Okay" : isYou ? "Tired" : "Low";
+          const score = m.score != null ? Math.round(m.score) : null;
+          const sleepLabel = m.sleep_hours != null ? `${m.sleep_hours.toFixed(1)} h` : "Unavailable";
+          const hrvLabel = m.hrv_rmssd_ms != null ? `${Math.round(m.hrv_rmssd_ms)} ms` : "Unavailable";
+          const reactionLabel = m.reaction_ms != null ? `${Math.round(m.reaction_ms)} ms` : "No check-in";
+          const moodLabel = m.mood ?? "No check-in";
 
           return (
             <section
@@ -354,10 +354,10 @@ export default function CrewMissionPage() {
                         isYou ? "text-white" : GATE_TEXT_COLOR[m.gate]
                       }`}
                     >
-                      {score}
+                      {score ?? "–"}
                     </span>
                     <span className={`text-xs font-semibold ${isYou ? "text-white/75" : "text-ink-muted"}`}>
-                      %
+                      {score != null ? "/100 demo" : canView ? "Insufficient data" : "Hidden"}
                     </span>
                   </p>
                 </div>
@@ -369,7 +369,7 @@ export default function CrewMissionPage() {
                 >
                   <div
                     className={`h-full rounded-full ${isYou ? "bg-white" : GATE_BAR_COLOR[m.gate]}`}
-                    style={{ width: `${Math.min(100, Math.max(8, score))}%` }}
+                    style={{ width: `${score != null ? Math.min(100, Math.max(8, score)) : 0}%` }}
                   />
                 </div>
               </div>
@@ -380,21 +380,21 @@ export default function CrewMissionPage() {
                     <p className={`flex items-center gap-1 text-[11px] ${isYou ? "text-white/75" : "text-ink-muted"}`}>
                       <Icon name="moon-sm" className={isYou ? "text-[#e6f23d]" : "text-brand"} /> Sleep
                     </p>
-                    <p className="mt-1 text-xs font-bold">{sleepH.toFixed(1)} h</p>
+                    <p className="mt-1 text-xs font-bold">{sleepLabel}</p>
                   </div>
 
                   <div className={`rounded-xl p-2.5 ${isYou ? "bg-white/12" : "bg-[#f4f7fe]"}`}>
                     <p className={`flex items-center gap-1 text-[11px] ${isYou ? "text-white/75" : "text-ink-muted"}`}>
-                      <Icon name="sun" className={isYou ? "text-[#e6f23d]" : "text-brand"} /> HRV
+                      <Icon name="sun" className={isYou ? "text-[#e6f23d]" : "text-brand"} /> HRV (context)
                     </p>
-                    <p className="mt-1 text-xs font-bold">{hrvVal} ms</p>
+                    <p className="mt-1 text-xs font-bold">{hrvLabel}</p>
                   </div>
 
                   <div className={`rounded-xl p-2.5 ${isYou ? "bg-white/12" : "bg-[#f4f7fe]"}`}>
                     <p className={`flex items-center gap-1 text-[11px] ${isYou ? "text-white/75" : "text-ink-muted"}`}>
                       <Icon name="clock" className={isYou ? "text-[#e6f23d]" : "text-brand"} /> Reaction
                     </p>
-                    <p className="mt-1 text-xs font-bold">{reactionVal} ms</p>
+                    <p className="mt-1 text-xs font-bold">{reactionLabel}</p>
                   </div>
 
                   <div className={`rounded-xl p-2.5 ${isYou ? "bg-white/12" : "bg-[#f4f7fe]"}`}>
@@ -418,9 +418,12 @@ export default function CrewMissionPage() {
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_360px]">
         {/* Left: Readiness by Shift, Next 3 Days + Crew Rest Requests */}
         <div className="space-y-5">
-          <section className={CARD} aria-label="Readiness by shift, next 3 days">
+          <section className={CARD} aria-label="Illustrative readiness projection, next 3 days">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-ink">Readiness by shift, next 3 days</h2>
+              <div>
+                <h2 className="text-base font-semibold text-ink">Illustrative readiness projection, next 3 days</h2>
+                <p className="text-[11px] text-ink-muted">Rule-based schedule projection, not an ML forecast or clearance</p>
+              </div>
               <div className="flex items-center gap-3 text-[11px] font-semibold text-ink-secondary">
                 <span className="flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-[#12935f]" /> GO
@@ -452,7 +455,7 @@ export default function CrewMissionPage() {
 
             <div className="relative mt-2.5 space-y-2.5">
               {members.map((m) => {
-                const cells = buildShiftForecast(m);
+                const cells = shiftCells(m);
                 const isYou = m.user.id === user.id;
                 return (
                   <div key={m.user.id} className="grid grid-cols-[100px_1fr] items-center gap-3">
@@ -463,8 +466,8 @@ export default function CrewMissionPage() {
                       {cells.map((gate, i) => (
                         <div
                           key={i}
-                          className={`h-8 rounded-lg ${SHIFT_CELL_COLOR[gate]} transition-opacity hover:opacity-85`}
-                          title={`${m.user.name}: ${gate}`}
+                          className={`h-8 rounded-lg ${gate ? SHIFT_CELL_COLOR[gate] : "border border-dashed border-slate-300 bg-white"} transition-opacity hover:opacity-85`}
+                          title={`${m.user.name}: ${gate ?? "Insufficient data"} (illustrative)`}
                         />
                       ))}
                       <div
@@ -571,8 +574,8 @@ export default function CrewMissionPage() {
                 const isFeatured = idx === 0 && !isApplied;
                 const fromMember = memberByName(s.from_user_name);
                 const toMember = memberByName(s.to_user_name);
-                const fromScore = Math.round(fromMember?.score ?? 38);
-                const toScore = Math.round(toMember?.score ?? 76);
+                const fromScore = fmtScore(fromMember?.score);
+                const toScore = fmtScore(toMember?.score);
 
                 return (
                   <div
@@ -617,7 +620,7 @@ export default function CrewMissionPage() {
                       }`}
                     >
                       {shortInitial(s.from_user_name)} scores {fromScore}, {shortInitial(s.to_user_name)} scores{" "}
-                      {toScore}.
+                      {toScore} (demo score).
                     </p>
 
                     <div className="mt-3.5 flex items-center gap-2">
@@ -677,7 +680,7 @@ export default function CrewMissionPage() {
               <div className="flex items-center gap-2.5">
                 <GateBadge gate={modal.requesterGate} />
                 <p className="flex items-baseline gap-0.5">
-                  <span className="text-2xl font-extrabold text-hold">{modal.requesterScore}</span>
+                  <span className="text-2xl font-extrabold text-hold">{modal.requesterScore ?? "n/a"}</span>
                   <span className="text-xs font-medium text-ink-muted">/100</span>
                 </p>
               </div>
@@ -730,7 +733,7 @@ export default function CrewMissionPage() {
               </div>
             </div>
 
-            {/* AI Suggests Banner + Rest Length Slider (Shown in Rest Review Mode) */}
+            {/* Rule-based Suggestion Banner + Rest Length Slider (Shown in Rest Review Mode) */}
             {modal.mode === "rest" && (
               <>
                 <div className="brand-glow rounded-2xl p-4 text-white">
@@ -740,17 +743,20 @@ export default function CrewMissionPage() {
                         <Icon name="moon-sm" />
                       </span>
                       <div>
-                        <p className="text-[11px] font-medium text-white/80">AI suggests</p>
-                        <p className="text-sm font-extrabold">2 hours of rest, 10:00 to 12:00</p>
+                        <p className="text-[11px] font-medium text-white/80">Rule-based suggestion</p>
+                        <p className="text-sm font-extrabold">
+                          {formatDurationShort(modal.request?.suggestion?.minutes ?? 120)} of rest
+                        </p>
                       </div>
                     </div>
                     <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white">
-                      Confidence 60%
+                      Illustrative
                     </span>
                   </div>
                   <p className="mt-2.5 text-xs leading-relaxed text-white/85">
-                    After 2 hours {shortInitial(modal.requesterName)} is predicted to reach 55 (CAUTION). That is
-                    enough for {modal.taskName.toLowerCase()} at 12:00, but not for EVA preparation tomorrow.
+                    {modal.request?.suggestion
+                      ? `Demo rules project ${shortInitial(modal.requesterName)} at ${Math.round(modal.request.suggestion.predicted_score)} (${modal.request.suggestion.predicted_gate}) after rest. Decision support only; you decide.`
+                      : "No rule-based projection available for this request. You decide."}
                   </p>
                 </div>
 
@@ -798,7 +804,7 @@ export default function CrewMissionPage() {
                   <div className="flex justify-between text-[11px] font-medium text-ink-muted">
                     <span>30 min</span>
                     <span>1 h</span>
-                    <span className="font-bold text-brand">2 h, AI</span>
+                    <span className="font-bold text-brand">2 h, suggested</span>
                     <span>3 h</span>
                     <span>4 h</span>
                   </div>
@@ -818,8 +824,8 @@ export default function CrewMissionPage() {
 
                 <div className="space-y-2">
                   {sortedCandidates.map((cand) => {
-                    const cScore = Math.round(cand.score ?? 50);
-                    const eligible = cScore >= modal.needsScore;
+                    const cScore = fmtScore(cand.score);
+                    const eligible = cand.score != null && cand.score >= modal.needsScore;
                     const isPicked = selectedMember?.user.id === cand.user.id;
                     const isAiPick = aiPickMember?.user.id === cand.user.id;
                     const isYou = cand.user.id === user.id;
@@ -847,7 +853,7 @@ export default function CrewMissionPage() {
                               </p>
                               {isAiPick && (
                                 <span className="rounded-full bg-[#e6f23d] px-2 py-0.5 text-[10px] font-extrabold text-[#0a1b4d]">
-                                  AI pick
+                                  Suggested
                                 </span>
                               )}
                             </div>
@@ -876,7 +882,7 @@ export default function CrewMissionPage() {
                 </div>
 
                 <p className="text-[11px] text-ink-muted">
-                  Only crew trained for this task are listed. The AI ranks them by score, free time and workload.
+                  Only crew trained for this task are listed. A simple rule ranks them by demo score. Human approval required.
                 </p>
 
                 {/* Bottom Selected Banner */}
@@ -889,7 +895,7 @@ export default function CrewMissionPage() {
                           {modal.taskName} moves to {selectedMember.user.name}
                         </p>
                         <p className="text-[11px] text-ink-muted">
-                          Score {Math.round(selectedMember.score ?? 76)} {selectedMember.gate}, trained for it, free{" "}
+                          Score {fmtScore(selectedMember.score)} {selectedMember.gate}, trained for it, free{" "}
                           {modal.taskWindow}
                         </p>
                       </div>
@@ -914,12 +920,12 @@ export default function CrewMissionPage() {
                     <Avatar name={selectedMember.user.name} tone="brand" />
                     <div>
                       <p className="font-bold text-ink">
-                        Your pick. AI suggested {aiPickMember ? shortInitial(aiPickMember.user.name) : "B"} (
-                        {Math.round(aiPickMember?.score ?? 77)} GO). {shortInitial(selectedMember.user.name)} scores{" "}
-                        {Math.round(selectedMember.score ?? 76)} {selectedMember.gate}, trained, free
+                        Your pick. Rule suggested {aiPickMember ? shortInitial(aiPickMember.user.name) : "none"} (
+                        {fmtScore(aiPickMember?.score)} {aiPickMember?.gate ?? ""}). {shortInitial(selectedMember.user.name)} scores{" "}
+                        {fmtScore(selectedMember.score)} {selectedMember.gate}, trained, free
                       </p>
                       <p className="text-[11px] text-ink-muted">
-                        Score {Math.round(selectedMember.score ?? 76)} {selectedMember.gate}, trained for it, free{" "}
+                        Score {fmtScore(selectedMember.score)} {selectedMember.gate}, trained for it, free{" "}
                         {modal.taskWindow}
                       </p>
                     </div>

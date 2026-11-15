@@ -74,13 +74,17 @@ export default function SleepSchedulePage() {
         if (cancelled) return;
 
         const tonight = sh.find((d) => d.forecast);
-        const now = { bed: tonight?.planned_bed ?? null, sleep: ov.prediction.circadian.predicted_sleep_hours };
+        const mlSleep = ov.prediction.sleep;
+        const sleepNow = mlSleep?.status === "ok" && mlSleep.predicted_sleep_tst_minutes != null
+          ? mlSleep.predicted_sleep_tst_minutes / 60
+          : ov.prediction.circadian.predicted_sleep_hours;
+        const now = { bed: tonight?.planned_bed ?? null, sleep: sleepNow };
         const prev = lastSeen.current;
         if (prev && (prev.bed !== now.bed || Math.abs(prev.sleep - now.sleep) >= 0.05)) {
           setChange(
             prev.bed !== now.bed && now.bed
-              ? `Your commander changed tonight's plan: bedtime ${prev.bed ?? "-"} → ${now.bed}, predicted sleep ${prev.sleep.toFixed(1)} h → ${now.sleep.toFixed(1)} h.`
-              : `Updated: predicted sleep ${prev.sleep.toFixed(1)} h → ${now.sleep.toFixed(1)} h.`,
+              ? `Your commander changed tonight's plan: bedtime ${prev.bed ?? "-"} → ${now.bed}, estimated sleep ${prev.sleep.toFixed(1)} h → ${now.sleep.toFixed(1)} h.`
+              : `Updated: estimated sleep ${prev.sleep.toFixed(1)} h → ${now.sleep.toFixed(1)} h.`,
           );
         }
         lastSeen.current = now;
@@ -144,7 +148,18 @@ export default function SleepSchedulePage() {
   const shiftDirection = circ.phase_shift_hours > 0 ? "late" : circ.phase_shift_hours < 0 ? "early" : "on time";
   const isDelayed = shiftHours >= 1;
   const target = overview.baseline.sleep_hours || 7;
-  const shortfall = Math.max(0, target - circ.predicted_sleep_hours);
+  const mlSleep = overview.prediction.sleep ?? null;
+  const sleepIsMl = mlSleep?.status === "ok" && mlSleep.predicted_sleep_tst_minutes != null && mlSleep.source !== "demo_rule";
+  const sleepHours = sleepIsMl ? mlSleep!.predicted_sleep_tst_minutes! / 60 : circ.predicted_sleep_hours;
+  const sleepLabel = sleepIsMl ? "Predicted sleep tonight (Model 2)" : "Estimated sleep tonight";
+  const sleepNote = sleepIsMl
+    ? "Total sleep time only, no bedtime forecast"
+    : mlSleep?.status === "insufficient_data"
+      ? "Sleep forecast: insufficient data. Illustrative estimate (not ML)"
+      : "Illustrative estimate (not ML)";
+  const shortfall = sleepIsMl && mlSleep!.sleep_shortfall_minutes != null
+    ? Math.max(0, mlSleep!.sleep_shortfall_minutes / 60)
+    : Math.max(0, target - sleepHours);
   const history = sleepDays.filter((d) => !d.forecast);
   const rows = tonight ? [...history, tonight] : history;
 
@@ -195,14 +210,12 @@ export default function SleepSchedulePage() {
             <Icon name="moon-sm" size={20} />
           </span>
           <div>
-            <p className="text-xs font-medium text-ink-muted">Predicted sleep tonight (AI)</p>
+            <p className="text-xs font-medium text-ink-muted">{sleepLabel}</p>
             <p className="mt-1 flex items-baseline gap-1">
-              <span className="text-[44px] font-extrabold leading-none tracking-[-1.32px] text-ink">{circ.predicted_sleep_hours.toFixed(1)}</span>
+              <span className="text-[44px] font-extrabold leading-none tracking-[-1.32px] text-ink">{sleepHours.toFixed(1)}</span>
               <span className="text-sm font-medium text-ink-muted">h</span>
             </p>
-            <p className="mt-1 text-xs font-medium text-ink-muted">
-              {tonight ? `Planned ${tonight.planned_bed} to ${tonight.planned_wake}` : `Target ${target} h`}
-            </p>
+            <p className="mt-1 text-xs font-medium text-ink-muted">{sleepNote}</p>
           </div>
         </section>
 
@@ -218,7 +231,7 @@ export default function SleepSchedulePage() {
               </span>
               <span className="text-sm font-medium text-ink-muted">h</span>
             </p>
-            <p className="mt-1 text-xs font-medium text-ink-muted">Predicted vs {target} h target (AI)</p>
+            <p className="mt-1 text-xs font-medium text-ink-muted">{sleepIsMl ? "Model 2" : "Estimate"} vs {target} h demo target</p>
           </div>
         </section>
       </div>
@@ -231,7 +244,7 @@ export default function SleepSchedulePage() {
           <span className="flex-1" />
           <Legend swatch="h-3 w-5 rounded-full border border-dashed border-ink-muted bg-white" label="Planned" />
           <Legend swatch="h-3 w-5 rounded-full bg-brand" label="Actual" />
-          {tonight && <Legend swatch="h-3 w-5 rounded-full border-2 border-dashed border-brand bg-soft" label="Forecast (AI)" />}
+          {tonight && <Legend swatch="h-3 w-5 rounded-full border-2 border-dashed border-brand bg-soft" label="Tonight, illustrative planned window" />}
         </div>
 
         <div className="mt-5 grid grid-cols-[84px_1fr_64px] items-center gap-4 text-[11px] font-medium text-ink-muted">
@@ -257,6 +270,7 @@ export default function SleepSchedulePage() {
             {rows.map((d) => {
               const planned = span(d.planned_bed, d.planned_wake);
               const actual = span(d.actual_bed, d.actual_wake);
+              const plannedHours = ((((toMin(d.planned_wake) - toMin(d.planned_bed)) + 1440) % 1440) / 60);
               const low = d.hours < target - 1.2;
               const isTonight = !!d.forecast;
               return (
@@ -266,30 +280,38 @@ export default function SleepSchedulePage() {
                   </span>
                   <div
                     className={`relative h-7 rounded-full ${isTonight ? "bg-soft/60" : "bg-[#f4f7fe]"}`}
-                    title={`${isTonight ? "Forecast" : "Actual"} ${d.actual_bed} to ${d.actual_wake}, planned ${d.planned_bed} to ${d.planned_wake}`}
+                    title={isTonight ? `Illustrative planned window ${d.planned_bed} to ${d.planned_wake}` : `Actual ${d.actual_bed} to ${d.actual_wake}, planned ${d.planned_bed} to ${d.planned_wake}`}
                   >
                     {[25, 50, 75].map((x) => (
                       <span key={x} aria-hidden className="absolute inset-y-1 w-px bg-white" style={{ left: `${x}%` }} />
                     ))}
-                    <span
-                      aria-hidden
-                      className="absolute inset-y-0.5 rounded-full border border-dashed border-ink-muted/70 bg-white/70"
-                      style={{ left: `${planned.left}%`, width: `${planned.width}%` }}
-                    />
-                    <span
-                      aria-hidden
-                      className={`absolute inset-y-1.5 rounded-full ${
-                        isTonight
-                          ? "border-2 border-dashed border-brand bg-brand/15"
-                          : low
-                            ? "bg-[linear-gradient(90deg,#ff6b35_0%,#fc3d21_100%)]"
-                            : "bg-[linear-gradient(90deg,#3470e0_0%,#0b3d91_100%)]"
-                      }`}
-                      style={{ left: `${actual.left}%`, width: `${actual.width}%` }}
-                    />
+                    {isTonight ? (
+                      <span
+                        aria-hidden
+                        className="absolute inset-y-1 rounded-full border-2 border-dashed border-brand bg-brand/10"
+                        style={{ left: `${planned.left}%`, width: `${planned.width}%` }}
+                      />
+                    ) : (
+                      <>
+                        <span
+                          aria-hidden
+                          className="absolute inset-y-0.5 rounded-full border border-dashed border-ink-muted/70 bg-white/70"
+                          style={{ left: `${planned.left}%`, width: `${planned.width}%` }}
+                        />
+                        <span
+                          aria-hidden
+                          className={`absolute inset-y-1.5 rounded-full ${
+                            low
+                              ? "bg-[linear-gradient(90deg,#ff6b35_0%,#fc3d21_100%)]"
+                              : "bg-[linear-gradient(90deg,#3470e0_0%,#0b3d91_100%)]"
+                          }`}
+                          style={{ left: `${actual.left}%`, width: `${actual.width}%` }}
+                        />
+                      </>
+                    )}
                   </div>
                   <span className={`text-right font-semibold ${isTonight ? "text-brand" : low ? "text-hold" : "text-ink"}`}>
-                    {d.hours.toFixed(1)} h{isTonight && <span className="block text-[11px] font-medium text-ink-muted">forecast</span>}
+                    {isTonight ? plannedHours.toFixed(1) : d.hours.toFixed(1)} h{isTonight && <span className="block text-[11px] font-medium text-ink-muted">planned</span>}
                   </span>
                 </li>
               );
@@ -302,11 +324,11 @@ export default function SleepSchedulePage() {
         <section className={`${CARD} flex flex-col gap-3`} aria-labelledby="shift-heading">
           <div className="flex flex-wrap items-center gap-3.5">
             <h2 id="shift-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
-              Sleep timing shift <span className="font-normal text-ink-muted">last 14 days</span>
+              Sleep schedule alignment <span className="font-normal text-ink-muted">last 14 days</span>
             </h2>
             <span className="flex-1" />
             <Legend swatch="w-[18px] border-t-[3px] border-ink" label="History" />
-            {clockPoints.some((p) => p.projected) && <Legend swatch="w-[18px] border-t-[3px] border-dashed border-brand" label="With tonight's plan" />}
+            {clockPoints.some((p) => p.projected) && <Legend swatch="w-[18px] border-t-[3px] border-dashed border-brand" label="Illustrative, with tonight's plan" />}
           </div>
           {clockPoints.length > 0 ? (
             <ShiftChart points={clockPoints} />
@@ -325,7 +347,7 @@ export default function SleepSchedulePage() {
               <h2 id="light-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
                 Light plan today
               </h2>
-              <span className="rounded-full bg-soft px-3 py-1 text-[11px] font-semibold text-brand">Crew quarters</span>
+              <span className="rounded-full bg-soft px-3 py-1 text-[11px] font-semibold text-brand">Rule-based suggestion</span>
             </div>
             <div className="mt-4 flex flex-col gap-2.5">
               {plan.map((item, i) => {

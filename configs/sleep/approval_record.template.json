@@ -1,0 +1,25 @@
+{
+  "approved": false,
+  "approved_by": null,
+  "approved_at_utc": null,
+  "task": "sleep",
+  "gate_status": null,
+  "preprocessing_reviewed": false,
+  "preprocessing_merged_to_main": false,
+  "preprocessing_version": "pmdata-preprocessing-1.0.0",
+  "preprocessing_fingerprint": null,
+  "schema_fingerprint": null,
+  "split_fingerprint": null,
+  "config_fingerprint": null,
+  "reviewed_evidence": {
+    "mandatory_validation": false,
+    "audit_reconciliation": false,
+    "timestamp_assumptions": false,
+    "shared_contract": false
+  },
+  "authorized_scopes": [],
+  "approved_freeze_fingerprint": null,
+  "scenario_fingerprints": {},
+  "primary_tst_workflow_complete": false,
+  "note": "Unapproved template only. ML lead must review evidence and record an exact scoped approval."
+}

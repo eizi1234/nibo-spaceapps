@@ -93,7 +93,7 @@ const LIGHT_PLAN: {
   { time: "07:30", title: "Bright light", subtitle: "Helps you wake up", icon: "sun", mode: "warm_dim" },
   { time: "13:00", title: "Normal light", subtitle: "Daytime work", icon: "sun", mode: "warm_dim" },
   { time: "22:30", title: "Dim, warm light", subtitle: "Gets you ready for sleep", icon: "moon-sm", mode: "warm_dim" },
-  { time: "01:00", title: "Lights off", subtitle: "30 min earlier than last night", icon: "moon-sm", mode: "off" },
+  { time: "01:00", title: "Lights off", subtitle: "Demo schedule", icon: "moon-sm", mode: "off" },
 ];
 
 const TEMP_BARS = [42, 46, 44, 48, 50, 46, 44, 48, 52, 56, 62, 68, 72, 70];
@@ -116,9 +116,12 @@ export default function ReadyToSleepPage() {
     oscs: [],
   });
 
-  useEffect(() => {
+  const ctxKey = `${scenario}:${day}`;
+  const [seenKey, setSeenKey] = useState(ctxKey);
+  if (seenKey !== ctxKey) {
+    setSeenKey(ctxKey);
     setAirOffset(0);
-  }, [scenario, day]);
+  }
 
   useEffect(() => {
     return () => {
@@ -127,7 +130,6 @@ export default function ReadyToSleepPage() {
         audioCtxRef.current.close().catch(() => {});
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function stopAudio() {
@@ -266,7 +268,7 @@ export default function ReadyToSleepPage() {
         <h1 className="text-[28px] font-bold leading-[1.2] tracking-[-0.42px] text-ink">
           Ready to Sleep?
         </h1>
-        <p className="text-[13px] font-medium text-ink-secondary">Your body clock and sleep pattern</p>
+        <p className="text-[13px] font-medium text-ink-secondary">Simulated cabin environment and controls (demo data)</p>
       </header>
 
       <div className="grid gap-5 lg:grid-cols-3">
@@ -526,7 +528,7 @@ export default function ReadyToSleepPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-ink">Light plan today</h2>
               <span className="rounded-full bg-soft px-3 py-1 text-[11px] font-semibold text-brand">
-                Crew quarters
+                Rule-based, simulated
               </span>
             </div>
 

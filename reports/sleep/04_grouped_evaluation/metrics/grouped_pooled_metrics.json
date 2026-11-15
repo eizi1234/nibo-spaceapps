@@ -1,0 +1,41 @@
+{
+  "metrics": {
+    "improvement_vs_persistence_pct": 24.141585879054617,
+    "mae_minutes": 56.578109699599274,
+    "mean_signed_error_minutes": -0.045481091111636764,
+    "n": 1682,
+    "participant_macro_mae_minutes": 56.465016270884355,
+    "participants": 15,
+    "persistence_mae_minutes": 74.58382877526753,
+    "rmse_minutes": 77.3048415402288
+  },
+  "participant_cluster_bootstrap": {
+    "intervals": {
+      "improvement_vs_persistence_pct": {
+        "lower": 21.431189299747707,
+        "upper": 26.72415842153848,
+        "valid_replicates": 1000
+      },
+      "mae_minutes": {
+        "lower": 50.66215711456196,
+        "upper": 63.42924299160924,
+        "valid_replicates": 1000
+      },
+      "participant_macro_mae_minutes": {
+        "lower": 50.461756306174486,
+        "upper": 63.573093064700636,
+        "valid_replicates": 1000
+      },
+      "rmse_minutes": {
+        "lower": 68.55314579970138,
+        "upper": 86.62270221829537,
+        "valid_replicates": 1000
+      }
+    },
+    "invalid_replicates": 0,
+    "replicates": 1000,
+    "seed": 42,
+    "warning": "Participant bootstrap; small subject count limits interval stability"
+  },
+  "protocol": "nested_groupkfold; separate from chronology; no outer-based reselection"
+}
