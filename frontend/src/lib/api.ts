@@ -1,7 +1,7 @@
 // Pembungkus pemanggil API backend + penyimpanan token login.
 import type {
-  BodyClockPoint, CheckInCreate, CheckInResult, LoginResponse, OverviewResponse,
-  RestRequest, RestRequestCreate, SleepDay, UserPublic,
+  BodyClockPoint, CheckInCreate, CheckInResult, CrewResponse, LoginResponse, OverviewResponse,
+  RestRequest, RestRequestCreate, SleepDay, SleepPlanInput, SleepPlanResult, UserPublic,
 } from "@/types/crew";
 
 
@@ -99,6 +99,10 @@ export const api = {
     request<ReadyToSleepState>("/ready-to-sleep/audio", patch(body), { day }),
   applyLightPlan: (day: number) =>
     request<{ ok: boolean; applied: boolean; day: number }>("/ready-to-sleep/light-plan/apply", post({}), { day }),
-
+  crew: (ctx: Ctx) => request<CrewResponse>("/crew", {}, { ...ctx }),
+  simulateSleepPlan: (body: SleepPlanInput, ctx: Ctx) =>
+    request<SleepPlanResult>("/sleep-plan/simulate", post(body), { ...ctx }),
+  applySleepPlan: (body: SleepPlanInput, ctx: Ctx) =>
+    request<SleepPlanResult>("/sleep-plan/apply", post(body), { ...ctx }),
 };
 

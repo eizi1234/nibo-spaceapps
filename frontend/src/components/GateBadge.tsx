@@ -1,17 +1,32 @@
 import type { ReadinessGate } from "@/types/astronaut";
 
-const STYLES: Record<ReadinessGate, string> = {
-  GO: "bg-emerald-100 text-emerald-800",
-  CAUTION: "bg-amber-100 text-amber-800",
-  HOLD: "bg-red-100 text-red-700",
+const TEXT: Record<ReadinessGate, string> = {
+  GO: "text-go",
+  CAUTION: "text-caution",
+  HOLD: "text-hold",
+};
+const SOFT_BG: Record<ReadinessGate, string> = {
+  GO: "bg-go-bg",
+  CAUTION: "bg-caution-bg",
+  HOLD: "bg-hold-bg",
 };
 
-export default function GateBadge({ gate, className = "" }: { gate: ReadinessGate; className?: string }) {
+export default function GateBadge({
+  gate,
+  tone = "soft",
+  className = "",
+}: {
+  gate: ReadinessGate;
+  tone?: "soft" | "white";
+  className?: string;
+}) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${STYLES[gate]} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-3 py-[5px] text-[11px] font-semibold leading-[1.3] tracking-[0.22px] ${
+        tone === "white" ? "bg-white" : SOFT_BG[gate]
+      } ${TEXT[gate]} ${className}`}
     >
-      <span aria-hidden className="size-1.5 rounded-full bg-current" />
+      <span aria-hidden className="size-2 rounded-full bg-current" />
       {gate}
     </span>
   );
