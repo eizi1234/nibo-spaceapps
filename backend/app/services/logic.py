@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from ml.cognitive.inference import predict_fatigue
 
 import math
 from typing import List, Optional, Tuple
@@ -11,11 +19,11 @@ from app.schemas import (
 from app.services import rules, simulator, store
 from app.services.ml_service import ml_service
 
-NOW_BLOCK = 1          # 07:05 jatuh di blok 06-12
-BLOCKS = 12            # 3 hari x 4 blok @ 6 jam
-GAIN_PER_HOUR = 9.0    # kenaikan skor per jam istirahat (placeholder)
-SUGGEST_MARGIN = 5.0   # saran istirahat menargetkan skor syarat + margin
-CAUTION_BAND = 10.0    # CAUTION jika skor >= syarat - 10
+NOW_BLOCK = 1          
+BLOCKS = 12            
+GAIN_PER_HOUR = 9.0    
+SUGGEST_MARGIN = 5.0   
+CAUTION_BAND = 10.0    
 MOOD_LABEL = {1: "Very low", 2: "Low", 3: "Okay", 4: "Good", 5: "Very good"}
 THRESHOLDS = {"go": 70, "caution": 40}
 
@@ -55,7 +63,6 @@ def task_gate(score: float, needs: float) -> ReadinessGate:
     return ReadinessGate.HOLD
 
 
-# ---------- skor ----------
 def apply_plan(f: WearableFeatures, earlier: int, recovery: int) -> WearableFeatures:
     data = f.model_dump()
     data["schedule_shift_minutes"] = max(0.0, f.schedule_shift_minutes - earlier)
@@ -64,21 +71,29 @@ def apply_plan(f: WearableFeatures, earlier: int, recovery: int) -> WearableFeat
 
 
 def plan_for(user_id: str, day: int) -> Tuple[int, int]:
-    """Rencana tidur dari commander yang tersimpan: (menit tidur lebih awal, menit recovery)."""
     p = store.STATE["plans"].get((user_id, day))
     return (p["bedtime_earlier_minutes"], p["recovery_sleep_minutes"]) if p else (0, 0)
 
 
 def features_for(user_id: str, scenario: str, day: int, plan: Optional[Tuple[int, int]] = None) -> WearableFeatures:
-    """Fitur setelah rencana diterapkan. plan=None memakai rencana yang tersimpan."""
     f = simulator.generate_for_user(user_id, scenario, day)
     earlier, recovery = plan if plan is not None else plan_for(user_id, day)
     return apply_plan(f, earlier, recovery) if (earlier or recovery) else f
 
 
 def predict(user_id: str, f: WearableFeatures, scenario: str) -> PredictionResponse:
+    # Integrasi Model 1 (Random Forest) buatan Anet
+    try:
+        features_dict = f.model_dump()
+        fatigue_risk = predict_fatigue(features_dict)
+        score_val = round(clamp((1.0 - float(fatigue_risk)) * 100, 0, 100), 1)
+    except Exception:
+        score_val = ml_service.predict_cognitive_risk(f).readiness_score
+
     stress = ml_service.predict_cognitive_risk(f)
+    stress.readiness_score = score_val
     circ = ml_service.predict_circadian(f)
+    
     return PredictionResponse(
         astronaut_id=user_id, scenario=scenario, is_simulated=True,
         cognitive_stress=stress, circadian=circ,
@@ -104,12 +119,16 @@ def apply_checkin(pred: PredictionResponse, checkin: Optional[dict]) -> Tuple[fl
     if mood_pts:
         adj.append(Adjustment(source="mood", points=mood_pts,
                               note=f"Self-reported mood: {MOOD_LABEL[checkin['mood']]}"))
+    
+    # PERBAIKAN: Menggunakan aturan demo kebijakan transparan untuk kafein tanpa membaca top_features model
     if checkin["drink"] == "coffee":
         unreliable.append("resting_hr_bpm")
-        rhr = next((x.impact for x in pred.cognitive_stress.top_features if x.name == "resting_hr_bpm"), 0.0)
-        if rhr > 0:
-            adj.append(Adjustment(source="caffeine", points=round(rhr * 100, 1),
-                                  note="Resting heart rate ignored (caffeine raises it for a while)"))
+        adj.append(Adjustment(
+            source="caffeine", 
+            points=-2.0,
+            note="Resting heart rate elevated by caffeine (demo policy adjustment)"
+        ))
+
     if checkin["took_sleep_medication"]:
         unreliable.append("sleep_hours")
         adj.append(Adjustment(source="sleep_medication", points=0.0,
@@ -124,8 +143,6 @@ def evaluate(user_id: str, scenario: str, day: int, f: Optional[WearableFeatures
     raw = simulator.generate_for_user(user_id, scenario, day)
     f = f or (apply_plan(raw, earlier, recovery) if (earlier or recovery) else raw)
     pred = predict(user_id, f, scenario)
-    # Tidur malam ini: recovery sleep adalah tambahan tidur nyata, jadi dihitung dari sleep debt ASLI
-    # lalu ditambah recovery (bukan dihitung dua kali lewat berkurangnya debt).
     circ = ml_service.predict_circadian(f.model_copy(update={"sleep_debt_hours": raw.sleep_debt_hours}))
     pred.circadian = circ.model_copy(
         update={"predicted_sleep_hours": round(min(9.0, circ.predicted_sleep_hours + recovery / 60), 1)})
@@ -136,6 +153,10 @@ def evaluate(user_id: str, scenario: str, day: int, f: Optional[WearableFeatures
 
 
 def forecast(user_id: str, scenario: str, day: int) -> List[float]:
+    """
+    Proyeksi tren skor kesiapan berbasis aturan kebijakan demo (Decision Support), 
+    bukan prediksi langsung dari model ML.
+    """
     ev = evaluate(user_id, scenario, day)
     cur = ev["score"]
     cap = max(cur, 78 - 0.03 * abs(ev["f"].schedule_shift_minutes))
@@ -149,7 +170,6 @@ def forecast(user_id: str, scenario: str, day: int) -> List[float]:
     return out
 
 
-# ---------- tugas ----------
 def task_views(user_id: str, scenario: str, day: int, include_scores: bool = True) -> List[TaskStatus]:
     fc = forecast(user_id, scenario, day)
     rows = []
@@ -174,7 +194,6 @@ def get_task(task_id: Optional[str]) -> Optional[dict]:
     return next((t for t in store.STATE["tasks"] if t["id"] == task_id), None)
 
 
-# ---------- kandidat pengganti & saran tukar ----------
 def replacement_candidates(task: dict, exclude: str, scenario: str, day: int) -> List[Candidate]:
     idx = block_index(task["day_offset"], task["hour"])
     rows = []
@@ -227,7 +246,6 @@ def swap_suggestions(scenario: str, day: int) -> List[SwapSuggestion]:
     return out
 
 
-# ---------- permintaan istirahat ----------
 def rest_suggestion(requester_id: str, task: Optional[dict], scenario: str, day: int, viewer: dict) -> RestSuggestion:
     score = evaluate(requester_id, scenario, day)["score"]
     needs = task["needs"] if task else 40
@@ -262,7 +280,6 @@ def rest_view(req: dict, viewer: dict, scenario: str, day: int) -> RestRequest:
         replacement_user_id=req["replacement_user_id"], suggestion=sug)
 
 
-# ---------- check-in, overview, crew ----------
 def what_helps(f: WearableFeatures, score: float) -> List[str]:
     tips = []
     if score < THRESHOLDS["go"]:
@@ -319,7 +336,6 @@ def crew_members(viewer: dict, scenario: str, day: int) -> List[CrewMember]:
     return out
 
 
-# ---------- sleep management what-if ----------
 def _outcome(ev: dict) -> PlanOutcome:
     f = ev["f"]
     return PlanOutcome(score=ev["score"], gate=ev["gate"], body_clock_hours=round(f.schedule_shift_minutes / 60, 1),
@@ -328,7 +344,6 @@ def _outcome(ev: dict) -> PlanOutcome:
 
 
 def simulate_plan(target_id: str, earlier: int, recovery: int, scenario: str, day: int) -> SleepPlanResult:
-    # Rencana bersifat absolut terhadap kondisi dasar: bandingkan rencana tersimpan vs rencana baru.
     ev0 = evaluate(target_id, scenario, day)
     ev1 = evaluate(target_id, scenario, day, plan=(earlier, recovery))
     changes = [TaskChange(task_id=t["id"], name=t["name"], needs_score=t["needs"],
@@ -346,10 +361,9 @@ def simulate_plan(target_id: str, earlier: int, recovery: int, scenario: str, da
 
 
 def _default_light_plan(user_id: str, scenario: str, day: int) -> list[dict]:
-    """Sesuaikan waktu lights-off dengan rencana tidur (jika commander mengubah jadwal)."""
     plan = store.STATE["plans"].get((user_id, day))
     earlier = plan["bedtime_earlier_minutes"] if plan else 0
-    off_min = (25 * 60) - earlier  # default 01:00 (25:00) atau 30 min lebih awal
+    off_min = (25 * 60) - earlier  
     off_str = simulator.hhmm(off_min)
     return [
         dict(time="07:30", title="Bright light", subtitle="Helps you wake up", icon="bright", active=False),
@@ -378,19 +392,16 @@ def get_ready_to_sleep(user_id: str, scenario: str, day: int) -> dict:
     )
 
 
-# ---------- grafik Sleep & circadian yang mengikuti rencana commander ----------
-from app.schemas import BodyClockPoint  # noqa: E402
+from app.schemas import BodyClockPoint  
 
 
 def sleep_windows(user_id: str, scenario: str, day: int, days: int = 7) -> List[SleepDay]:
-    """Riwayat tidur + baris 'Tonight' (prediksi) yang mengikuti rencana commander."""
     rows = [SleepDay(**r) for r in simulator.sleep_history(user_id, scenario, day, days)]
     earlier, recovery = plan_for(user_id, day)
     ev = evaluate(user_id, scenario, day)
     hours = ev["pred"].circadian.predicted_sleep_hours
-    plan_bed = simulator.BASE_BED_MIN - earlier        # jadwal baru dari commander
+    plan_bed = simulator.BASE_BED_MIN - earlier        
     plan_wake = simulator.BASE_WAKE_MIN + recovery
-    # Kru mengikuti jadwal baru; selisih jam biologisnya = shift setelah rencana (sama dengan kartu Body clock).
     bed = plan_bed + ev["f"].schedule_shift_minutes
     rows.append(SleepDay(
         day=day, label="Tonight", planned_bed=simulator.hhmm(plan_bed), planned_wake=simulator.hhmm(plan_wake),
@@ -399,7 +410,6 @@ def sleep_windows(user_id: str, scenario: str, day: int, days: int = 7) -> List[
 
 
 def body_clock_series(user_id: str, scenario: str, day: int, days: int = 14, ahead: int = 5) -> List[BodyClockPoint]:
-    """Riwayat shift jam biologis + (kalau ada rencana) proyeksi `ahead` hari menuju shift baru."""
     hist = [BodyClockPoint(**r) for r in simulator.body_clock_history(user_id, scenario, day, days)]
     earlier, _ = plan_for(user_id, day)
     if not earlier:
@@ -409,3 +419,11 @@ def body_clock_series(user_id: str, scenario: str, day: int, days: int = 14, ahe
     proj = [BodyClockPoint(day=day + k, shift_hours=round(s0 + (s1 - s0) * k / ahead, 1), projected=True)
             for k in range(1, ahead + 1)]
     return hist + proj
+
+
+def evaluate_cognitive_fatigue(user_id: str, scenario: str, day: int, engineered_features: dict):
+    risk_score = predict_fatigue(engineered_features)
+    return {
+        "fatigue_risk_score": float(risk_score),
+        "confidence": None  
+    }
