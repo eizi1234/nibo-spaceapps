@@ -1,0 +1,20 @@
+{
+  "status": "protected_final_completed",
+  "config_frozen": true,
+  "n": 228,
+  "positive": 49,
+  "negative": 179,
+  "average_precision": 0.3619365450901846,
+  "average_precision_reason": null,
+  "balanced_accuracy": 0.6027818948808574,
+  "macro_f1": 0.6134081126907526,
+  "recall": 0.30612244897959184,
+  "specificity": 0.8994413407821229,
+  "roc_auc": 0.6487287652491165,
+  "roc_auc_reason": null,
+  "brier": 0.18337287792588197,
+  "log_loss": 0.5536936325991808,
+  "decision_threshold": 0.49,
+  "ece": 0.15446947776241754,
+  "participants": 13
+}

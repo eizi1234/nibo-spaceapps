@@ -1,0 +1,21 @@
+{
+  "approved": false,
+  "task": "fatigue",
+  "approved_by": null,
+  "approved_at_utc": null,
+  "preprocessing_reviewed": false,
+  "preprocessing_merged_to_main": false,
+  "preprocessing_version": "pmdata-preprocessing-1.0.0",
+  "gate_status": null,
+  "preprocessing_fingerprint": null,
+  "dataset_fingerprint": null,
+  "schema_fingerprint": null,
+  "split_fingerprint": null,
+  "history_fingerprint": null,
+  "config_fingerprint": null,
+  "authorized_scopes": [],
+  "approved_freeze_fingerprint": null,
+  "calibration_adequacy_approved": false,
+  "reviewed_evidence": {"mandatory_validation":false,"audit_reconciliation":false,"timestamp_assumptions":false,"shared_contract":false},
+  "scenario_fingerprints": {}
+}
