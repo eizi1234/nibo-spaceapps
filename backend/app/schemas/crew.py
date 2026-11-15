@@ -96,11 +96,13 @@ class SleepDay(BaseModel):
     actual_bed: str
     actual_wake: str
     hours: float
+    forecast: bool = False  # True = prediksi malam ini
 
 
 class BodyClockPoint(BaseModel):
     day: int
     shift_hours: float
+    projected: bool = False  # True = proyeksi hari mendatang
 
 
 class OverviewResponse(BaseModel):

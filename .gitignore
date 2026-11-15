@@ -14,3 +14,4 @@ frontend/.env.local
 
 __pycache__/
 *.pyc
+*.bak

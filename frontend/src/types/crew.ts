@@ -22,8 +22,8 @@ export interface CheckInResult {
   reaction_baseline_ms: number; what_helps: string[]; tasks: TaskStatus[]; is_simulated: boolean;
 }
 
-export interface SleepDay { day: number; label: string; planned_bed: string; planned_wake: string; actual_bed: string; actual_wake: string; hours: number }
-export interface BodyClockPoint { day: number; shift_hours: number }
+export interface SleepDay { day: number; label: string; planned_bed: string; planned_wake: string; actual_bed: string; actual_wake: string; hours: number; forecast?: boolean }
+export interface BodyClockPoint { day: number; shift_hours: number; projected?: boolean }
 export interface Baseline { sleep_hours: number; hrv_rmssd_ms: number; resting_hr_bpm: number; reaction_ms: number }
 
 export interface OverviewResponse {

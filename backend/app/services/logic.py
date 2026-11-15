@@ -339,8 +339,10 @@ def simulate_plan(target_id: str, earlier: int, recovery: int, scenario: str, da
             for k in range(1, 6)]
     return SleepPlanResult(
         user_id=target_id, current=_outcome(ev0), with_change=_outcome(ev1), task_changes=changes,
-        clock_projection=proj, bedtime_before="23:30", bedtime_after=simulator.hhmm(23 * 60 + 30 - earlier),
-        wake_before="06:00", wake_after=simulator.hhmm(6 * 60 + recovery))
+        clock_projection=proj, bedtime_before=simulator.hhmm(simulator.BASE_BED_MIN),
+        bedtime_after=simulator.hhmm(simulator.BASE_BED_MIN - earlier),
+        wake_before=simulator.hhmm(simulator.BASE_WAKE_MIN),
+        wake_after=simulator.hhmm(simulator.BASE_WAKE_MIN + recovery))
 
 
 def _default_light_plan(user_id: str, scenario: str, day: int) -> list[dict]:
@@ -374,3 +376,36 @@ def get_ready_to_sleep(user_id: str, scenario: str, day: int) -> dict:
         light_plan_applied=store.STATE["light_plan_applied"].get((user_id, day), False),
         audio=dict(**audio_state, playlists=DEFAULT_PLAYLISTS),
     )
+
+
+# ---------- grafik Sleep & circadian yang mengikuti rencana commander ----------
+from app.schemas import BodyClockPoint  # noqa: E402
+
+
+def sleep_windows(user_id: str, scenario: str, day: int, days: int = 7) -> List[SleepDay]:
+    """Riwayat tidur + baris 'Tonight' (prediksi) yang mengikuti rencana commander."""
+    rows = [SleepDay(**r) for r in simulator.sleep_history(user_id, scenario, day, days)]
+    earlier, recovery = plan_for(user_id, day)
+    ev = evaluate(user_id, scenario, day)
+    hours = ev["pred"].circadian.predicted_sleep_hours
+    plan_bed = simulator.BASE_BED_MIN - earlier        # jadwal baru dari commander
+    plan_wake = simulator.BASE_WAKE_MIN + recovery
+    # Kru mengikuti jadwal baru; selisih jam biologisnya = shift setelah rencana (sama dengan kartu Body clock).
+    bed = plan_bed + ev["f"].schedule_shift_minutes
+    rows.append(SleepDay(
+        day=day, label="Tonight", planned_bed=simulator.hhmm(plan_bed), planned_wake=simulator.hhmm(plan_wake),
+        actual_bed=simulator.hhmm(bed), actual_wake=simulator.hhmm(bed + hours * 60), hours=hours, forecast=True))
+    return rows
+
+
+def body_clock_series(user_id: str, scenario: str, day: int, days: int = 14, ahead: int = 5) -> List[BodyClockPoint]:
+    """Riwayat shift jam biologis + (kalau ada rencana) proyeksi `ahead` hari menuju shift baru."""
+    hist = [BodyClockPoint(**r) for r in simulator.body_clock_history(user_id, scenario, day, days)]
+    earlier, _ = plan_for(user_id, day)
+    if not earlier:
+        return hist
+    raw = simulator.generate_for_user(user_id, scenario, day).schedule_shift_minutes
+    s0, s1 = raw / 60, max(0.0, raw - earlier) / 60
+    proj = [BodyClockPoint(day=day + k, shift_hours=round(s0 + (s1 - s0) * k / ahead, 1), projected=True)
+            for k in range(1, ahead + 1)]
+    return hist + proj

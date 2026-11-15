@@ -55,15 +55,20 @@ def hhmm(minutes: float) -> str:
     return f"{m // 60:02d}:{m % 60:02d}"
 
 
+BASE_BED_MIN = 23 * 60 + 30   # jadwal tidur dasar: 23:30
+BASE_WAKE_MIN = 6 * 60 + 30   # jadwal bangun dasar: 06:30
+
+
 def sleep_history(user_id: str, scenario: str, day: int, days: int = 7) -> list[dict]:
-    """Jendela tidur terencana vs aktual. Baris terakhir = 'Last night'."""
+    """Jendela tidur terencana vs aktual. Baris terakhir = 'Last night'.
+    Riwayat TIDAK dipengaruhi rencana commander (itu sudah lewat); rencana masuk lewat logic.sleep_windows."""
     base = SCENARIOS[archetype_for(user_id, scenario)]
     rng = _rng(user_id, scenario, day, "sleep")
     last = generate_for_user(user_id, scenario, day)
     rows = []
     for i in range(days):
         p = (i + 1) / days
-        bed = base["shift"] * p  # menit setelah 00:00
+        bed = BASE_BED_MIN + base["shift"] * p
         if i == days - 1:
             hours = last.sleep_hours
         else:
@@ -72,7 +77,7 @@ def sleep_history(user_id: str, scenario: str, day: int, days: int = 7) -> list[
         rows.append(dict(
             day=d,
             label="Last night" if i == days - 1 else f"Day {d}",
-            planned_bed="00:00", planned_wake="07:00",
+            planned_bed=hhmm(BASE_BED_MIN), planned_wake=hhmm(BASE_WAKE_MIN),
             actual_bed=hhmm(bed), actual_wake=hhmm(bed + hours * 60),
             hours=hours,
         ))

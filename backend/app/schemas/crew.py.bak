@@ -118,6 +118,7 @@ class OverviewResponse(BaseModel):
     sleep_7d: List[SleepDay]
     baseline: Baseline
     recommended_actions: List[str]
+    sleep_debt_hours: Optional[float] = None
 
 
 # ---------- crew (commander) ----------

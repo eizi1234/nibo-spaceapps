@@ -7,57 +7,62 @@ import { api, ApiError } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard-context";
 import type { BodyClockPoint, OverviewResponse, SleepDay } from "@/types/crew";
 
-const CARD = "glass-card rounded-[24px] p-6";
-
-// Data ini di-refresh otomatis supaya perubahan dari commander muncul tanpa reload.
+const CARD = "glass-card rounded-xl p-6";
 const REFRESH_MS = 5000;
 
-// Backend belum mengirim field ini. Begitu ada, kartu Sleep debt otomatis memakainya
-// (nilainya konsisten dengan halaman Overview). Sebelum itu dipakai hitungan lama dari riwayat tidur.
-type OverviewWithDebt = OverviewResponse & { sleep_debt_hours?: number };
+type LampMode = "bright" | "warm_dim" | "off";
+type LightStep = { time: string; title: string; subtitle: string; icon: IconName; lampMode: LampMode };
 
-const LIGHT_PLAN: {
-  time: string;
-  title: string;
-  subtitle: string;
-  icon: IconName;
-  lampMode: "bright" | "warm_dim" | "off";
-}[] = [
-  { time: "07:30", title: "Bright light", subtitle: "Helps you wake up", icon: "sun", lampMode: "bright" },
-  { time: "13:00", title: "Normal light", subtitle: "Daytime work", icon: "sun", lampMode: "bright" },
-  { time: "22:30", title: "Dim, warm light", subtitle: "Gets you ready for sleep", icon: "moon-sm", lampMode: "warm_dim" },
-  { time: "01:00", title: "Lights off", subtitle: "30 min earlier than last night", icon: "moon-sm", lampMode: "off" },
-];
-
-// Konversi string jam "HH:MM" ke posisi persen pada timeline 24 jam (mulai 18:00 s.d. 18:00 berikutnya)
-function timeToTimelinePct(hhmm: string): number {
-  const [hStr, mStr] = hhmm.split(":");
-  const h = Number(hStr) || 0;
-  const m = Number(mStr) || 0;
-  const totalHours = h + m / 60;
-  const offsetFrom18 = (totalHours - 18 + 24) % 24;
-  return Math.min(96, Math.max(4, (offsetFrom18 / 24) * 100));
+function toMin(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return ((h || 0) * 60 + (m || 0)) % 1440;
 }
 
-export default function SleepCircadianPage() {
+function toHhmm(min: number) {
+  const m = ((Math.round(min) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+const AXIS_START = 18 * 60;
+
+function axisPct(min: number) {
+  return (((min - AXIS_START + 1440) % 1440) / 1440) * 100;
+}
+
+function span(bed: string, wake: string) {
+  const start = axisPct(toMin(bed));
+  const length = (((toMin(wake) - toMin(bed)) + 1440) % 1440) / 1440 * 100;
+  return { left: start, width: Math.max(1.5, Math.min(100 - start, length)) };
+}
+
+function lightPlan(tonight: SleepDay | undefined): LightStep[] {
+  const bed = tonight ? toMin(tonight.planned_bed) : 23 * 60 + 30;
+  const wake = tonight ? toMin(tonight.planned_wake) : 6 * 60 + 30;
+  return [
+    { time: toHhmm(wake), title: "Bright light", subtitle: "At planned wake-up", icon: "sun", lampMode: "bright" },
+    { time: "13:00", title: "Normal light", subtitle: "Daytime work", icon: "sun", lampMode: "bright" },
+    { time: toHhmm(bed - 60), title: "Dim, warm light", subtitle: "1 hour before planned bedtime", icon: "moon-sm", lampMode: "warm_dim" },
+    { time: toHhmm(bed), title: "Lights off", subtitle: "Planned bedtime tonight", icon: "moon-sm", lampMode: "off" },
+  ];
+}
+
+export default function SleepSchedulePage() {
   const { user, scenario, day } = useDashboard();
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
   const [sleepDays, setSleepDays] = useState<SleepDay[]>([]);
   const [clockPoints, setClockPoints] = useState<BodyClockPoint[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<string>("22:30");
+  const [selectedSlot, setSelectedSlot] = useState(2);
   const [planApplied, setPlanApplied] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [change, setChange] = useState<string | null>(null);
-
-  // Angka sirkadian dari pengambilan data sebelumnya, untuk mendeteksi perubahan.
-  const lastSeen = useRef<{ shift: number; sleep: number } | null>(null);
+  const lastSeen = useRef<{ bed: string | null; sleep: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const ctx = { scenario, day };
-    lastSeen.current = null; // skenario/hari berganti: jangan bandingkan dengan data konteks lain
+    lastSeen.current = null;
 
     async function load() {
       try {
@@ -68,26 +73,24 @@ export default function SleepCircadianPage() {
         ]);
         if (cancelled) return;
 
-        const c = ov.prediction.circadian;
+        const tonight = sh.find((d) => d.forecast);
+        const now = { bed: tonight?.planned_bed ?? null, sleep: ov.prediction.circadian.predicted_sleep_hours };
         const prev = lastSeen.current;
-        if (
-          prev &&
-          (Math.abs(prev.shift - c.phase_shift_hours) >= 0.05 ||
-            Math.abs(prev.sleep - c.predicted_sleep_hours) >= 0.05)
-        ) {
+        if (prev && (prev.bed !== now.bed || Math.abs(prev.sleep - now.sleep) >= 0.05)) {
           setChange(
-            `Updated: body clock ${Math.abs(prev.shift).toFixed(1)} h → ${Math.abs(c.phase_shift_hours).toFixed(1)} h, ` +
-              `predicted sleep ${prev.sleep.toFixed(1)} h → ${c.predicted_sleep_hours.toFixed(1)} h`,
+            prev.bed !== now.bed && now.bed
+              ? `Your commander changed tonight's plan: bedtime ${prev.bed ?? "-"} → ${now.bed}, predicted sleep ${prev.sleep.toFixed(1)} h → ${now.sleep.toFixed(1)} h.`
+              : `Updated: predicted sleep ${prev.sleep.toFixed(1)} h → ${now.sleep.toFixed(1)} h.`,
           );
         }
-        lastSeen.current = { shift: c.phase_shift_hours, sleep: c.predicted_sleep_hours };
+        lastSeen.current = now;
 
         setOverview(ov);
         setSleepDays(sh);
         setClockPoints(bc);
         setError(null);
       } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : "Failed to load sleep & circadian data.");
+        if (!cancelled) setError(e instanceof ApiError ? e.message : "Failed to load sleep data.");
       }
     }
 
@@ -105,20 +108,20 @@ export default function SleepCircadianPage() {
     };
   }, [user.id, scenario, day]);
 
+  const tonight = sleepDays.find((d) => d.forecast);
+  const plan = lightPlan(tonight);
+
   async function handleApplyLightPlan() {
     setApplying(true);
     setApplyError(null);
-    const activePlan = LIGHT_PLAN.find((p) => p.time === selectedSlot);
+    const step = plan[selectedSlot];
     try {
       await Promise.all([
         api.applyLightPlan(day),
-        activePlan
-          ? api.updateLamp({ mode: activePlan.lampMode === "off" ? "off" : "warm" }, day)
-          : Promise.resolve(),
+        step ? api.updateLamp({ mode: step.lampMode === "off" ? "off" : "warm" }, day) : Promise.resolve(),
       ]);
       setPlanApplied(true);
     } catch (e: unknown) {
-      // Jangan menampilkan "Applied" kalau permintaannya gagal.
       setPlanApplied(false);
       setApplyError(e instanceof ApiError ? e.message : "Could not apply the light plan.");
     } finally {
@@ -132,38 +135,28 @@ export default function SleepCircadianPage() {
         {error}
       </p>
     ) : (
-      <p className="text-sm text-ink-secondary">Loading sleep &amp; circadian telemetry...</p>
+      <p className="text-sm text-ink-secondary">Loading sleep data...</p>
     );
   }
 
   const circ = overview.prediction.circadian;
   const shiftHours = Math.abs(circ.phase_shift_hours);
-  const shiftDirection =
-    circ.phase_shift_hours > 0 ? "late" : circ.phase_shift_hours < 0 ? "early" : "aligned";
+  const shiftDirection = circ.phase_shift_hours > 0 ? "late" : circ.phase_shift_hours < 0 ? "early" : "on time";
   const isDelayed = shiftHours >= 1;
-  const recHours = overview.baseline.sleep_hours || 7;
-
-  // Sleep debt: pakai nilai dari backend kalau ada, kalau tidak hitung dari riwayat 7 hari.
-  const serverDebt = (overview as OverviewWithDebt).sleep_debt_hours;
-  const sleepDebt =
-    serverDebt ?? sleepDays.reduce((acc, d) => acc + Math.max(0, recHours - d.hours), 0);
-
-  // Posisi kotak Planned Window (00:00 s.d. 07:00 pada skala 18:00 - 18:00)
-  const plannedLeftPct = timeToTimelinePct("00:00");
-  const plannedWidthPct = (recHours / 24) * 100;
+  const target = overview.baseline.sleep_hours || 7;
+  const shortfall = Math.max(0, target - circ.predicted_sleep_hours);
+  const history = sleepDays.filter((d) => !d.forecast);
+  const rows = tonight ? [...history, tonight] : history;
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-col gap-0.5">
-        <p className="text-[13px] font-medium text-ink-secondary">Your body clock and sleep pattern</p>
-        <h1 className="text-[28px] font-bold leading-[1.2] tracking-[-0.42px] text-ink">Sleep &amp; circadian</h1>
+    <div className="flex flex-col gap-[22px]">
+      <header className="flex flex-col gap-0.5 md:min-h-[46px]">
+        <p className="text-[13px] leading-[1.5] text-ink-secondary">Your sleep timing and duration</p>
+        <h1 className="text-[28px] font-bold leading-[1.2] tracking-[-0.42px] text-ink">Sleep &amp; schedule</h1>
       </header>
 
       {change && (
-        <div
-          role="status"
-          className="flex items-start justify-between gap-3 rounded-2xl bg-go-bg px-4 py-3 text-sm text-go"
-        >
+        <div role="status" className="flex items-start justify-between gap-3 rounded-2xl bg-go-bg px-4 py-3 text-[13px] text-go">
           <span>{change}</span>
           <button type="button" onClick={() => setChange(null)} className="shrink-0 font-semibold underline">
             Dismiss
@@ -172,246 +165,206 @@ export default function SleepCircadianPage() {
       )}
 
       {error && (
-        <p role="alert" className="rounded-2xl bg-hold-bg px-4 py-3 text-sm text-hold">
+        <p role="alert" className="rounded-2xl bg-hold-bg px-4 py-3 text-[13px] text-hold">
           Could not refresh. Showing the last data. ({error})
         </p>
       )}
 
-      {/* Top 3 Summary Cards (Matching Figma) */}
       <div className="grid gap-5 md:grid-cols-3">
-        {/* 1. Body Clock Card */}
-        <section
-          className="brand-glow relative flex flex-col justify-between overflow-hidden rounded-[24px] p-6 text-white"
-          aria-label="Body clock"
-        >
+        <section className="brand-glow relative flex flex-col justify-between gap-6 overflow-hidden rounded-xl p-6 text-white" aria-label="Sleep timing">
           <div className="flex items-center justify-between">
-            <span className="flex size-9 items-center justify-center rounded-full bg-white text-brand">
-              <Icon name="sun" />
+            <span className="flex size-11 items-center justify-center rounded-full bg-white text-brand">
+              <Icon name="sun" size={20} />
             </span>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-extrabold tracking-wide ${
-                isDelayed ? "text-hold" : "text-go"
-              }`}
-            >
-              <span className={`size-1.5 rounded-full ${isDelayed ? "bg-hold" : "bg-go"}`} />
+            <span className={`inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-[5px] text-[11px] font-semibold tracking-[0.22px] ${isDelayed ? "text-hold" : "text-go"}`}>
+              <span className="size-2 rounded-full bg-current" />
               {isDelayed ? "DELAYED" : "ALIGNED"}
             </span>
           </div>
-
-          <div className="mt-6">
-            <p className="text-xs font-medium text-white/80">Body clock</p>
-            <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="text-4xl font-extrabold tracking-tight">{shiftHours.toFixed(1)} h</span>
+          <div>
+            <p className="text-xs font-medium text-white/80">Sleep timing</p>
+            <p className="mt-1 flex items-baseline gap-1.5">
+              <span className="text-[44px] font-extrabold leading-none tracking-[-1.32px]">{shiftHours.toFixed(1)} h</span>
               <span className="text-sm font-medium text-white/85">{shiftDirection}</span>
-            </div>
+            </p>
           </div>
         </section>
 
-        {/* 2. Predicted Sleep Tonight Card */}
-        <section className={`${CARD} flex flex-col justify-between`} aria-label="Predicted sleep tonight">
+        <section className={`${CARD} flex flex-col justify-between gap-6`} aria-label="Predicted sleep tonight">
+          <span className="flex size-11 items-center justify-center rounded-full bg-soft text-brand">
+            <Icon name="moon-sm" size={20} />
+          </span>
           <div>
-            <span className="flex size-9 items-center justify-center rounded-full bg-soft text-brand">
-              <Icon name="moon-sm" />
-            </span>
-          </div>
-
-          <div className="mt-6">
-            <p className="text-xs font-medium text-ink-muted">Predicted sleep tonight</p>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-4xl font-extrabold tracking-tight text-ink">
-                {circ.predicted_sleep_hours.toFixed(1)}
-              </span>
-              <span className="text-base font-medium text-ink-muted">h</span>
-            </div>
-            <p className="mt-1 text-xs text-ink-muted">Recommended {recHours} h</p>
+            <p className="text-xs font-medium text-ink-muted">Predicted sleep tonight (AI)</p>
+            <p className="mt-1 flex items-baseline gap-1">
+              <span className="text-[44px] font-extrabold leading-none tracking-[-1.32px] text-ink">{circ.predicted_sleep_hours.toFixed(1)}</span>
+              <span className="text-sm font-medium text-ink-muted">h</span>
+            </p>
+            <p className="mt-1 text-xs font-medium text-ink-muted">
+              {tonight ? `Planned ${tonight.planned_bed} to ${tonight.planned_wake}` : `Target ${target} h`}
+            </p>
           </div>
         </section>
 
-        {/* 3. Sleep Debt Card */}
-        <section className={`${CARD} flex flex-col justify-between`} aria-label="Sleep debt">
+        <section className={`${CARD} flex flex-col justify-between gap-6`} aria-label="Sleep shortfall">
+          <span className="flex size-11 items-center justify-center rounded-full bg-soft text-brand">
+            <Icon name="clock" size={20} />
+          </span>
           <div>
-            <span className="flex size-9 items-center justify-center rounded-full bg-soft text-brand">
-              <Icon name="clock" />
-            </span>
-          </div>
-
-          <div className="mt-6">
-            <p className="text-xs font-medium text-ink-muted">Sleep debt</p>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-4xl font-extrabold tracking-tight text-hold">
-                {sleepDebt.toFixed(1)}
+            <p className="text-xs font-medium text-ink-muted">Sleep shortfall</p>
+            <p className="mt-1 flex items-baseline gap-1">
+              <span className={`text-[44px] font-extrabold leading-none tracking-[-1.32px] ${shortfall >= 1 ? "text-hold" : shortfall > 0 ? "text-caution" : "text-go"}`}>
+                {shortfall.toFixed(1)}
               </span>
-              <span className="text-base font-medium text-ink-muted">h</span>
-            </div>
-            <p className="mt-1 text-xs text-ink-muted">Builds up night by night</p>
+              <span className="text-sm font-medium text-ink-muted">h</span>
+            </p>
+            <p className="mt-1 text-xs font-medium text-ink-muted">Predicted vs {target} h target (AI)</p>
           </div>
         </section>
       </div>
 
-      {/* Middle Full-Width Card: Sleep Windows, Last 7 Days (Timeline Style matching Figma) */}
-      <section className={CARD} aria-label="Sleep windows, last 7 days">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <h2 className="text-base font-semibold text-ink">Sleep windows, last 7 days</h2>
-          <div className="flex items-center gap-4 text-xs font-medium text-ink-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-5 rounded-full border border-dashed border-slate-400 bg-slate-100" />
-              Planned
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-5 rounded-full bg-[#0b3d91]" />
-              Actual
-            </span>
-          </div>
+      <section className={CARD} aria-labelledby="windows-heading">
+        <div className="flex flex-wrap items-center gap-4">
+          <h2 id="windows-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
+            Sleep windows, last 7 days
+          </h2>
+          <span className="flex-1" />
+          <Legend swatch="h-3 w-5 rounded-full border border-dashed border-ink-muted bg-white" label="Planned" />
+          <Legend swatch="h-3 w-5 rounded-full bg-brand" label="Actual" />
+          {tonight && <Legend swatch="h-3 w-5 rounded-full border-2 border-dashed border-brand bg-soft" label="Forecast (AI)" />}
         </div>
 
-        {/* 24-hour Axis Header */}
-        <div className="mt-5 grid grid-cols-[76px_1fr_52px] items-center gap-4 text-[11px] font-medium text-ink-muted">
+        <div className="mt-5 grid grid-cols-[84px_1fr_64px] items-center gap-4 text-[11px] font-medium text-ink-muted">
           <span />
-          <div className="flex justify-between px-1">
-            <span>18:00</span>
-            <span>00:00</span>
-            <span>06:00</span>
-            <span>12:00</span>
-            <span>18:00</span>
+          <div className="relative h-4">
+            {["18:00", "00:00", "06:00", "12:00", "18:00"].map((t, i) => (
+              <span
+                key={`${t}-${i}`}
+                className="absolute -translate-x-1/2 whitespace-nowrap first:translate-x-0 last:-translate-x-full"
+                style={{ left: `${i * 25}%` }}
+              >
+                {t}
+              </span>
+            ))}
           </div>
           <span />
         </div>
 
-        {/* 7 Day Rows */}
-        <div className="mt-3 space-y-3">
-          {sleepDays.map((d) => {
-            const actualLeft = timeToTimelinePct(d.actual_bed);
-            const actualWidth = Math.min(45, Math.max(12, (d.hours / 24) * 100));
-            const isLow = d.hours < recHours - 1.2;
-
-            return (
-              <div key={d.day} className="grid grid-cols-[76px_1fr_52px] items-center gap-4 text-xs">
-                <span
-                  className={
-                    d.label === "Last night" ? "font-bold text-ink" : "font-medium text-ink-muted"
-                  }
-                >
-                  {d.label}
-                </span>
-
-                {/* Timeline Track */}
-                <div className="relative h-7 rounded-full bg-[#f4f7fe]">
-                  {/* Planned Dashed Window */}
+        {rows.length === 0 ? (
+          <p className="mt-4 text-[13px] text-ink-secondary">No sleep data yet.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2.5">
+            {rows.map((d) => {
+              const planned = span(d.planned_bed, d.planned_wake);
+              const actual = span(d.actual_bed, d.actual_wake);
+              const low = d.hours < target - 1.2;
+              const isTonight = !!d.forecast;
+              return (
+                <li key={`${d.day}-${d.label}`} className="grid grid-cols-[84px_1fr_64px] items-center gap-4 text-xs">
+                  <span className={`truncate ${d.label === "Last night" || isTonight ? "font-semibold text-ink" : "font-medium text-ink-muted"}`}>
+                    {d.label}
+                  </span>
                   <div
-                    className="absolute top-0.5 bottom-0.5 rounded-full border border-dashed border-slate-400/70 bg-white/60"
-                    style={{
-                      left: `${plannedLeftPct}%`,
-                      width: `${plannedWidthPct}%`,
-                    }}
-                  />
-
-                  {/* Actual Sleep Capsule */}
-                  <div
-                    className={`absolute top-1.5 bottom-1.5 rounded-full transition-all ${
-                      isLow
-                        ? "bg-[linear-gradient(90deg,#ff6b35_0%,#e63946_100%)]"
-                        : "bg-[linear-gradient(90deg,#1d56c4_0%,#0b3d91_100%)]"
-                    }`}
-                    style={{
-                      left: `${actualLeft}%`,
-                      width: `${actualWidth}%`,
-                    }}
-                  />
-                </div>
-
-                <span className={`text-right font-bold ${isLow ? "text-hold" : "text-ink"}`}>
-                  {d.hours.toFixed(1)} h
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                    className={`relative h-7 rounded-full ${isTonight ? "bg-soft/60" : "bg-[#f4f7fe]"}`}
+                    title={`${isTonight ? "Forecast" : "Actual"} ${d.actual_bed} to ${d.actual_wake}, planned ${d.planned_bed} to ${d.planned_wake}`}
+                  >
+                    {[25, 50, 75].map((x) => (
+                      <span key={x} aria-hidden className="absolute inset-y-1 w-px bg-white" style={{ left: `${x}%` }} />
+                    ))}
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0.5 rounded-full border border-dashed border-ink-muted/70 bg-white/70"
+                      style={{ left: `${planned.left}%`, width: `${planned.width}%` }}
+                    />
+                    <span
+                      aria-hidden
+                      className={`absolute inset-y-1.5 rounded-full ${
+                        isTonight
+                          ? "border-2 border-dashed border-brand bg-brand/15"
+                          : low
+                            ? "bg-[linear-gradient(90deg,#ff6b35_0%,#fc3d21_100%)]"
+                            : "bg-[linear-gradient(90deg,#3470e0_0%,#0b3d91_100%)]"
+                      }`}
+                      style={{ left: `${actual.left}%`, width: `${actual.width}%` }}
+                    />
+                  </div>
+                  <span className={`text-right font-semibold ${isTonight ? "text-brand" : low ? "text-hold" : "text-ink"}`}>
+                    {d.hours.toFixed(1)} h{isTonight && <span className="block text-[11px] font-medium text-ink-muted">forecast</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
 
-      {/* Bottom 2-Column Section */}
-      <div className="grid items-stretch gap-5 lg:grid-cols-[1fr_360px]">
-        {/* Left: Body Clock Shift (Last 14 Days SVG Line Chart) */}
-        <section className={`${CARD} flex flex-col justify-between`} aria-label="Body clock shift">
-          <div>
-            <h2 className="text-base font-semibold text-ink">
-              Body clock shift <span className="font-normal text-ink-muted">last 14 days</span>
+      <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className={`${CARD} flex flex-col gap-3`} aria-labelledby="shift-heading">
+          <div className="flex flex-wrap items-center gap-3.5">
+            <h2 id="shift-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
+              Sleep timing shift <span className="font-normal text-ink-muted">last 14 days</span>
             </h2>
+            <span className="flex-1" />
+            <Legend swatch="w-[18px] border-t-[3px] border-ink" label="History" />
+            {clockPoints.some((p) => p.projected) && <Legend swatch="w-[18px] border-t-[3px] border-dashed border-brand" label="With tonight's plan" />}
           </div>
-
-          <div className="mt-4">
-            <BodyClockLineChart points={clockPoints} />
-          </div>
+          {clockPoints.length > 0 ? (
+            <ShiftChart points={clockPoints} />
+          ) : (
+            <p className="text-[13px] text-ink-secondary">No data yet.</p>
+          )}
+          <p className="flex items-center gap-2 text-xs font-medium leading-[1.4] text-ink-muted">
+            <Icon name="info-circle" />
+            <span>How far bedtime is from the planned schedule. Not a biological circadian measure.</span>
+          </p>
         </section>
 
-        {/* Right: Interactive Light Plan Today */}
-        <section className={`${CARD} flex flex-col justify-between gap-4`} aria-label="Light plan today">
+        <section className={`${CARD} flex flex-col justify-between gap-4`} aria-labelledby="light-heading">
           <div>
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-ink">Light plan today</h2>
-              <span className="rounded-full bg-soft px-3 py-1 text-[11px] font-semibold text-brand">
-                Crew quarters
-              </span>
+              <h2 id="light-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
+                Light plan today
+              </h2>
+              <span className="rounded-full bg-soft px-3 py-1 text-[11px] font-semibold text-brand">Crew quarters</span>
             </div>
-
-            <div className="mt-4 space-y-2.5">
-              {LIGHT_PLAN.map((item) => {
-                const isSelected = selectedSlot === item.time;
+            <div className="mt-4 flex flex-col gap-2.5">
+              {plan.map((item, i) => {
+                const isSelected = selectedSlot === i;
                 return (
                   <button
-                    key={item.time}
+                    key={item.title}
                     type="button"
+                    aria-pressed={isSelected}
                     onClick={() => {
-                      setSelectedSlot(item.time);
+                      setSelectedSlot(i);
                       setPlanApplied(false);
                       setApplyError(null);
                     }}
                     className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-left transition ${
-                      isSelected
-                        ? "accent-glow text-on-accent"
-                        : "bg-[#f4f7fe] text-ink hover:bg-slate-200/60"
+                      isSelected ? "accent-glow text-on-accent" : "bg-[#f4f7fe] text-ink hover:bg-soft"
                     }`}
                   >
-                    <span
-                      className={`w-11 shrink-0 text-xs font-bold ${
-                        isSelected ? "text-on-accent" : "text-ink"
-                      }`}
-                    >
-                      {item.time}
-                    </span>
-
+                    <span className="w-11 shrink-0 text-xs font-bold">{item.time}</span>
                     <span
                       className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
-                        isSelected
-                          ? "bg-[#0a1b4d] text-[#e6f23d]"
-                          : "bg-white text-brand shadow-2xs"
+                        isSelected ? "bg-brand-strong text-accent" : "bg-white text-brand"
                       }`}
                     >
                       <Icon name={item.icon} />
                     </span>
-
-                    <div className="min-w-0">
-                      <p
-                        className={`text-xs font-bold leading-tight ${
-                          isSelected ? "text-on-accent" : "text-ink"
-                        }`}
-                      >
-                        {item.title}
-                      </p>
-                      <p
-                        className={`truncate text-[11px] ${
-                          isSelected ? "text-on-accent/80" : "text-ink-muted"
-                        }`}
-                      >
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold leading-tight">{item.title}</span>
+                      <span className={`block truncate text-[11px] ${isSelected ? "text-on-accent/80" : "text-ink-muted"}`}>
                         {item.subtitle}
-                      </p>
-                    </div>
+                      </span>
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {applyError && (
               <p role="alert" className="rounded-xl bg-hold-bg px-3 py-2 text-xs text-hold">
                 {applyError}
@@ -421,17 +374,12 @@ export default function SleepCircadianPage() {
               type="button"
               disabled={applying}
               onClick={handleApplyLightPlan}
-              className={`w-full rounded-full py-3 text-xs font-bold transition ${
-                planApplied
-                  ? "bg-go-bg text-go hover:brightness-95"
-                  : "brand-glow text-white hover:brightness-110"
+              className={`flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition disabled:opacity-60 ${
+                planApplied ? "bg-go-bg text-go hover:brightness-95" : "brand-glow text-white hover:brightness-110"
               }`}
             >
-              {planApplied
-                ? `✓ Applied (${selectedSlot}) · Click to re-apply`
-                : applying
-                ? "Applying..."
-                : "Apply to crew quarters >"}
+              {planApplied ? `Applied (${plan[selectedSlot]?.time}). Apply again` : applying ? "Applying..." : "Apply to crew quarters"}
+              {!planApplied && !applying && <Icon name="chevron-right" />}
             </button>
           </div>
         </section>
@@ -440,83 +388,80 @@ export default function SleepCircadianPage() {
   );
 }
 
-function BodyClockLineChart({ points }: { points: BodyClockPoint[] }) {
-  const W = 540;
-  const H = 220;
-  const left = 40;
-  const right = 18;
-  const top = 20;
-  const zeroY = 184;
+function Legend({ swatch, label }: { swatch: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5 text-xs font-medium leading-[1.4] text-ink-secondary">
+      <span aria-hidden className={`inline-block ${swatch}`} />
+      {label}
+    </span>
+  );
+}
 
-  const data =
-    points.length > 0
-      ? points
-      : [
-          { day: 129, shift_hours: 0 },
-          { day: 135, shift_hours: 0.6 },
-          { day: 142, shift_hours: 3.0 },
-        ];
+function ShiftChart({ points }: { points: BodyClockPoint[] }) {
+  const W = 700;
+  const H = 250;
+  const left = 44;
+  const right = 14;
+  const top = 18;
+  const zeroY = 210;
 
-  const maxY = Math.max(3, Math.ceil(Math.max(...data.map((p) => p.shift_hours))));
-  const x = (i: number) =>
-    left + 12 + (i * (W - left - right - 24)) / Math.max(1, data.length - 1);
+  const peak = Math.max(1, ...points.map((p) => p.shift_hours));
+  const step = peak <= 1.5 ? 0.5 : 1;
+  const maxY = Math.ceil(peak / step) * step;
+  const ticks = Array.from({ length: Math.round(maxY / step) + 1 }, (_, i) => i * step);
+  const x = (i: number) => left + 14 + (i * (W - left - right - 28)) / Math.max(1, points.length - 1);
   const y = (v: number) => zeroY - (Math.max(0, v) / maxY) * (zeroY - top);
 
-  const pathD = data
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p.shift_hours).toFixed(1)}`)
-    .join(" ");
-
-  const ticks = [0, 1, 2, 3];
-  const lastIdx = data.length - 1;
-  const midIdx = Math.floor(lastIdx / 2);
+  const lastHist = points.reduce((acc, p, i) => (p.projected ? acc : i), 0);
+  const line = (from: number, to: number) =>
+    points
+      .slice(from, to + 1)
+      .map((p, k) => `${k === 0 ? "M" : "L"}${x(from + k).toFixed(1)} ${y(p.shift_hours).toFixed(1)}`)
+      .join(" ");
+  const hasProjection = lastHist < points.length - 1;
+  const today = points[lastHist];
+  const end = points[points.length - 1];
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full font-sans">
-      {/* Green Aligned Zone (0h to 0.5h) */}
-      <rect
-        x={left}
-        y={y(0.5)}
-        width={W - left - right}
-        height={zeroY - y(0.5)}
-        rx={8}
-        fill="#ddf4e9"
-      />
-      <text x={left + 10} y={y(0.5) + 15} fontSize={11} fontWeight={600} fill="#12935f">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="h-auto w-full font-sans"
+      role="img"
+      aria-label={`Sleep timing shift is ${today.shift_hours} hours today${hasProjection ? `, projected ${end.shift_hours} hours on day ${end.day} with tonight's plan` : ""}`}
+    >
+      <rect x={left} y={y(Math.min(0.5, maxY))} width={W - left - right} height={zeroY - y(Math.min(0.5, maxY))} rx={8} fill="#ddf4e9" />
+      <text x={left + 8} y={y(Math.min(0.5, maxY)) + 15} fontSize={12} fontWeight={500} fill="#12935f">
         Aligned
       </text>
-
-      {/* Y-axis ticks */}
       {ticks.map((t) => (
-        <text key={t} x={4} y={y(t) + 4} fontSize={11} fontWeight={500} fill="#92a0bf">
+        <text key={t} x={0} y={y(t) + 4} fontSize={12} fontWeight={500} fill="#92a0bf">
           +{t} h
         </text>
       ))}
-
-      {/* Trend Line */}
-      <path d={pathD} fill="none" stroke="#0a1b4d" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Highlighted Endpoint Dot */}
-      {data.length > 0 && (
-        <circle
-          cx={x(lastIdx)}
-          cy={y(data[lastIdx].shift_hours)}
-          r={5}
-          fill="#fff"
-          stroke="#fc3d21"
-          strokeWidth={2.5}
-        />
+      {hasProjection && (
+        <rect x={x(lastHist)} y={top - 6} width={x(points.length - 1) - x(lastHist) + 8} height={zeroY - top + 6} rx={8} fill="#e3ecfd" opacity={0.5} />
       )}
-
-      {/* X-axis Labels */}
-      <text x={x(0)} y={H - 8} fontSize={11} fontWeight={500} fill="#92a0bf" textAnchor="start">
-        Day {data[0].day}
+      <path d={line(0, lastHist)} fill="none" stroke="#0a1a3a" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      {hasProjection && (
+        <>
+          <path d={line(lastHist, points.length - 1)} fill="none" stroke="#0b3d91" strokeWidth={2.5} strokeDasharray="7 6" strokeLinecap="round" />
+          {points.slice(lastHist + 1).map((p, k) => (
+            <circle key={p.day} cx={x(lastHist + 1 + k)} cy={y(p.shift_hours)} r={3.5} fill="#fff" stroke="#0b3d91" strokeWidth={2} />
+          ))}
+        </>
+      )}
+      <circle cx={x(lastHist)} cy={y(today.shift_hours)} r={5} fill="#fff" stroke={today.shift_hours >= 1 ? "#fc3d21" : "#12935f"} strokeWidth={2.5} />
+      <text x={x(0)} y={H - 6} fontSize={12} fontWeight={500} fill="#92a0bf" textAnchor="start">
+        Day {points[0].day}
       </text>
-      <text x={x(midIdx)} y={H - 8} fontSize={11} fontWeight={500} fill="#92a0bf" textAnchor="middle">
-        Day {data[midIdx].day}
-      </text>
-      <text x={x(lastIdx)} y={H - 8} fontSize={11} fontWeight={600} fill="#92a0bf" textAnchor="end">
+      <text x={x(lastHist)} y={H - 6} fontSize={12} fontWeight={600} fill="#0a1a3a" textAnchor={hasProjection ? "middle" : "end"}>
         Today
       </text>
+      {hasProjection && (
+        <text x={x(points.length - 1)} y={H - 6} fontSize={12} fontWeight={500} fill="#0b3d91" textAnchor="end">
+          Day {end.day}
+        </text>
+      )}
     </svg>
   );
 }

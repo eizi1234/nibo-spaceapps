@@ -105,14 +105,14 @@ def crew_swaps(user: User, scenario: Scenario = "normal", day: Day = store.DEFAU
 def sleep_history(user_id: str, user: User, scenario: Scenario = "normal", day: Day = store.DEFAULT_DAY,
                   days: Annotated[int, Query(ge=1, le=14)] = 7):
     require_visible(user, user_id)
-    return [SleepDay(**r) for r in simulator.sleep_history(user_id, scenario, day, days)]
+    return logic.sleep_windows(user_id, scenario, day, days)
 
 
 @router.get("/users/{user_id}/body-clock", response_model=List[BodyClockPoint])
 def body_clock(user_id: str, user: User, scenario: Scenario = "normal", day: Day = store.DEFAULT_DAY,
                days: Annotated[int, Query(ge=2, le=30)] = 14):
     require_visible(user, user_id)
-    return [BodyClockPoint(**r) for r in simulator.body_clock_history(user_id, scenario, day, days)]
+    return logic.body_clock_series(user_id, scenario, day, days)
 
 
 @router.get("/users/{user_id}/forecast", response_model=List[ForecastBlock])
