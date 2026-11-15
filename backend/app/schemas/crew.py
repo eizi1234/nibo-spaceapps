@@ -2,7 +2,7 @@
 Samakan dengan frontend/src/types/crew.ts.
 """
 from datetime import datetime
-from typing import Dict, List, Literal, Optional, Any
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -14,36 +14,6 @@ Sharing = Literal["status", "full"]  # status = commander hanya lihat GO/CAUTION
 Drink = Literal["coffee", "tea", "water", "nothing"]
 
 
-class ModelProvenance(BaseModel):
-    status: str  # "ok", "insufficient_data", "unavailable"
-    source: str  # "ml", "demo_rule", "unavailable"
-    model_version: Optional[str] = None
-    prediction_horizon: Optional[str] = None
-
-class FatiguePredictionOutput(BaseModel):
-    provenance: ModelProvenance
-    fatigue_risk_score: Optional[float] = None  # Native risk [0, 1]
-    fatigue_risk_probability: Optional[float] = None  # Selalu null untuk saat ini
-    predicted_elevated_fatigue: Optional[bool] = None
-    decision_threshold: float = 0.49
-    input_coverage: Optional[float] = None
-    explanation_available: bool = False
-    explanations: Optional[List[Any]] = None
-    uncertainty: Optional[float] = None  # Harus bernilai null
-
-class SleepPredictionOutput(BaseModel):
-    provenance: ModelProvenance
-    predicted_sleep_tst_minutes: Optional[float] = None
-    predicted_sleep_midpoint_minutes: Optional[float] = None  # Null karena unsupported
-    uncertainty: Optional[float] = None  # Null
-
-class EnhancedOverviewResponse(BaseModel):
-    user_id: str
-    day: int
-    scenario: str
-    fatigue_prediction: FatiguePredictionOutput
-    sleep_prediction: SleepPredictionOutput
-    decision_support: dict  # Berisi readiness_score, gate (GO/CAUTION/HOLD), dan policy demo
 # ---------- auth ----------
 class UserPublic(BaseModel):
     id: str

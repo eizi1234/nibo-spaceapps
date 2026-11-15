@@ -1,12 +1,3 @@
-import sys
-from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-from ml.cognitive.inference import predict_fatigue
-
 import math
 from typing import List, Optional, Tuple
 
@@ -16,7 +7,7 @@ from app.schemas import (
     SleepPlanResult, SwapSuggestion, TaskChange, TaskStatus, UserPublic, WearableFeatures,
     CheckInResult,
 )
-from app.services import rules, simulator, store
+from app.services import model_bridge, rules, simulator, store
 from app.services.ml_service import ml_service
 
 NOW_BLOCK = 1          
@@ -82,23 +73,20 @@ def features_for(user_id: str, scenario: str, day: int, plan: Optional[Tuple[int
 
 
 def predict(user_id: str, f: WearableFeatures, scenario: str) -> PredictionResponse:
-    # Integrasi Model 1 (Random Forest) buatan Anet
-    try:
-        features_dict = f.model_dump()
-        fatigue_risk = predict_fatigue(features_dict)
-        score_val = round(clamp((1.0 - float(fatigue_risk)) * 100, 0, 100), 1)
-    except Exception:
-        score_val = ml_service.predict_cognitive_risk(f).readiness_score
-
     stress = ml_service.predict_cognitive_risk(f)
-    stress.readiness_score = score_val
     circ = ml_service.predict_circadian(f)
-    
+    fatigue = model_bridge.fatigue_prediction(f)
+    sleep = model_bridge.sleep_prediction(f)
+    # Model 1 hanya menggantikan skor kesiapan kalau benar-benar jalan (status ok).
+    # Selain itu skor tetap dari aturan demo, dan status model dikirim apa adanya ke frontend.
+    if fatigue.status == "ok" and fatigue.fatigue_risk_score is not None:
+        stress.readiness_score = round(clamp((1.0 - fatigue.fatigue_risk_score) * 100, 0, 100), 1)
     return PredictionResponse(
         astronaut_id=user_id, scenario=scenario, is_simulated=True,
         cognitive_stress=stress, circadian=circ,
         readiness_gate=rules.readiness_gate(stress.readiness_score),
         recommended_actions=rules.recommend(f, stress, circ),
+        fatigue=fatigue, sleep=sleep,
     )
 
 
@@ -371,6 +359,19 @@ def _default_light_plan(user_id: str, scenario: str, day: int) -> list[dict]:
         dict(time="22:30", title="Dim, warm light", subtitle="Gets you ready for sleep", icon="dim", active=True),
         dict(time=off_str, title="Lights off", subtitle="30 min earlier than last night", icon="off", active=False),
     ]
+
+
+DEFAULT_PLAYLISTS = [
+    dict(id="deep_space_drift", title="Deep Space Drift",
+         subtitle="Slow ambient layers to help you unwind",
+         genre="Ambient", tracks_count=12, duration_label="1 hr 20 min", recommended=True),
+    dict(id="rain_on_window", title="Rain on the Window",
+         subtitle="Gentle rain and distant thunder",
+         genre="Nature sounds", tracks_count=8, duration_label="45 min", recommended=False),
+    dict(id="soft_piano_nights", title="Soft Piano Nights",
+         subtitle="Minimalist acoustic piano melodies",
+         genre="Instrumental", tracks_count=10, duration_label="1 hr", recommended=False),
+]
 
 
 def get_ready_to_sleep(user_id: str, scenario: str, day: int) -> dict:
