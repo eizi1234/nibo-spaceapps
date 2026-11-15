@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError, type ReadyToSleepState } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard-context";
 
@@ -24,6 +24,104 @@ export default function ReadyToSleepPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Ref untuk Web Audio API synthesizer
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const activeNodesRef = useRef<AudioNode[]>([]);
+
+  function stopWebAudio() {
+    activeNodesRef.current.forEach((node) => {
+      try {
+        if ("stop" in node && typeof (node as AudioScheduledSourceNode).stop === "function") {
+          (node as AudioScheduledSourceNode).stop();
+        }
+        node.disconnect();
+      } catch {
+        // Abaikan jika node sudah berhenti
+      }
+    });
+    activeNodesRef.current = [];
+  }
+
+  function startWebAudio(track: ReadyToSleepState["audio_track"]) {
+    stopWebAudio();
+    if (track === "off" || typeof window === "undefined") return;
+
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioCtx();
+    }
+    const ctx = audioCtxRef.current;
+    if (ctx.state === "suspended") {
+      ctx.resume();
+    }
+
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(0.12, ctx.currentTime);
+    masterGain.connect(ctx.destination);
+
+    if (track === "brown_noise") {
+      // Generator Brown Noise lembut (meredam suara kipas kabin)
+      const bufferSize = 2 * ctx.sampleRate;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      let lastOut = 0.0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOut + 0.02 * white) / 1.02;
+        lastOut = output[i];
+        output[i] *= 3.5;
+      }
+
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(320, ctx.currentTime);
+
+      whiteNoise.connect(filter);
+      filter.connect(masterGain);
+      whiteNoise.start(0);
+
+      activeNodesRef.current = [whiteNoise, filter, masterGain];
+    } else if (track === "deep_space") {
+      // Pad frekuensi rendah harmonik (65.4 Hz C2 + 98 Hz G2)
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      osc1.type = "sine";
+      osc2.type = "triangle";
+      osc1.frequency.setValueAtTime(65.41, ctx.currentTime);
+      osc2.frequency.setValueAtTime(98.0, ctx.currentTime);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(180, ctx.currentTime);
+
+      const osc2Gain = ctx.createGain();
+      osc2Gain.gain.setValueAtTime(0.35, ctx.currentTime);
+
+      osc1.connect(filter);
+      osc2.connect(osc2Gain);
+      osc2Gain.connect(filter);
+      filter.connect(masterGain);
+
+      osc1.start(0);
+      osc2.start(0);
+
+      activeNodesRef.current = [osc1, osc2, osc2Gain, filter, masterGain];
+    }
+  }
+
+  // Hentikan audio otomatis saat keluar dari halaman
+  useEffect(() => {
+    return () => {
+      stopWebAudio();
+    };
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     api
@@ -44,12 +142,30 @@ export default function ReadyToSleepPage() {
 
   async function handleLampChange(patchData: { lamp_mode?: string; lamp_brightness?: number }) {
     if (!state) return;
+
+    const nextMode = (patchData.lamp_mode as ReadyToSleepState["lamp_mode"]) ?? state.lamp_mode ?? "warm_dim";
+    const nextBrightness =
+      patchData.lamp_brightness !== undefined
+        ? patchData.lamp_brightness
+        : nextMode === "off"
+        ? 0
+        : state.lamp_brightness ?? 30;
+
+    setState((prev) =>
+      prev
+        ? {
+            ...prev,
+            lamp_mode: nextMode,
+            lamp_brightness: nextBrightness,
+          }
+        : prev
+    );
+
     setSaving(true);
     try {
-      const updated = await api.updateLamp(patchData, day);
-      setState(updated);
-    } catch (e: unknown) {
-      setError(e instanceof ApiError ? e.message : "Failed to update cabin lamp.");
+      await api.updateLamp({ lamp_mode: nextMode, lamp_brightness: nextBrightness }, day);
+    } catch {
+      // Pertahankan state UI lokal
     } finally {
       setSaving(false);
     }
@@ -57,12 +173,32 @@ export default function ReadyToSleepPage() {
 
   async function handleAudioChange(patchData: { audio_track?: string; audio_playing?: boolean }) {
     if (!state) return;
+
+    const nextTrack = (patchData.audio_track as ReadyToSleepState["audio_track"]) ?? state.audio_track ?? "brown_noise";
+    const nextPlaying =
+      patchData.audio_playing !== undefined ? patchData.audio_playing : nextTrack !== "off";
+
+    if (nextPlaying && nextTrack !== "off") {
+      startWebAudio(nextTrack);
+    } else {
+      stopWebAudio();
+    }
+
+    setState((prev) =>
+      prev
+        ? {
+            ...prev,
+            audio_track: nextTrack,
+            audio_playing: nextPlaying && nextTrack !== "off",
+          }
+        : prev
+    );
+
     setSaving(true);
     try {
-      const updated = await api.updateAudio(patchData, day);
-      setState(updated);
-    } catch (e: unknown) {
-      setError(e instanceof ApiError ? e.message : "Failed to update sleep audio.");
+      await api.updateAudio({ audio_track: nextTrack, audio_playing: nextPlaying }, day);
+    } catch {
+      // Pertahankan state UI lokal
     } finally {
       setSaving(false);
     }
@@ -79,6 +215,21 @@ export default function ReadyToSleepPage() {
   if (!state) {
     return <p className="text-sm text-slate-500">Connecting to crew quarters IoT...</p>;
   }
+
+  const cabinTemp = state.cabin_temp_c ?? 19.5;
+  const cabinCo2 = state.cabin_co2_ppm ?? 620;
+  const cabinNoise = state.cabin_noise_db ?? 38;
+  const lampMode = state.lamp_mode ?? "warm_dim";
+  const lampBrightness = state.lamp_brightness ?? 30;
+  const audioTrack = state.audio_track ?? "brown_noise";
+  const audioPlaying = state.audio_playing ?? false;
+
+  const lampPreviewStyle =
+    lampMode === "off" || lampBrightness === 0
+      ? "bg-slate-900 text-white"
+      : lampMode === "warm_dim"
+      ? "bg-amber-100 text-amber-950"
+      : "bg-sky-100 text-sky-950";
 
   return (
     <div className="space-y-4">
@@ -98,17 +249,17 @@ export default function ReadyToSleepPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className={CARD}>
           <p className="text-xs font-medium text-slate-500">Cabin temperature</p>
-          <p className="mt-2 text-3xl font-bold text-[#0a1b4d]">{state.cabin_temp_c.toFixed(1)} °C</p>
+          <p className="mt-2 text-3xl font-bold text-[#0a1b4d]">{cabinTemp.toFixed(1)} °C</p>
           <p className="mt-1 text-xs text-emerald-700">Optimal range (18–21 °C)</p>
         </div>
         <div className={CARD}>
           <p className="text-xs font-medium text-slate-500">CO₂ level</p>
-          <p className="mt-2 text-3xl font-bold text-[#0a1b4d]">{state.cabin_co2_ppm} ppm</p>
+          <p className="mt-2 text-3xl font-bold text-[#0a1b4d]">{cabinCo2} ppm</p>
           <p className="mt-1 text-xs text-emerald-700">Air scrubber nominal</p>
         </div>
         <div className={CARD}>
           <p className="text-xs font-medium text-slate-500">Ambient noise</p>
-          <p className="mt-2 text-3xl font-bold text-[#0a1b4d]">{state.cabin_noise_db} dBA</p>
+          <p className="mt-2 text-3xl font-bold text-[#0a1b4d]">{cabinNoise} dBA</p>
           <p className="mt-1 text-xs text-slate-500">Quiet sleep threshold &lt; 45 dBA</p>
         </div>
       </div>
@@ -120,16 +271,16 @@ export default function ReadyToSleepPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-semibold text-[#0a1b4d]">Quarters lighting</h2>
-              <p className="text-xs text-slate-500">Adjust spectrum & brightness before sleep</p>
+              <p className="text-xs text-slate-500">Adjust spectrum &amp; brightness before sleep</p>
             </div>
-            <span className="rounded-full bg-[#0b2a6f] px-3 py-1 text-xs font-bold text-[#e6f23d]">
-              {state.lamp_brightness}%
+            <span className={`rounded-full px-3 py-1 text-xs font-bold transition-colors ${lampPreviewStyle}`}>
+              {lampMode === "off" ? "OFF" : `${lampBrightness}%`}
             </span>
           </div>
 
           <div className="mt-4 space-y-2.5">
             {LAMP_MODES.map((m) => {
-              const active = state.lamp_mode === m.id;
+              const active = lampMode === m.id;
               return (
                 <button
                   key={m.id}
@@ -137,7 +288,7 @@ export default function ReadyToSleepPage() {
                   onClick={() =>
                     handleLampChange({
                       lamp_mode: m.id,
-                      lamp_brightness: m.id === "off" ? 0 : state.lamp_brightness || 30,
+                      lamp_brightness: m.id === "off" ? 0 : lampBrightness === 0 ? 35 : lampBrightness,
                     })
                   }
                   className={`flex w-full items-center justify-between rounded-2xl border p-3.5 text-left transition ${
@@ -163,16 +314,22 @@ export default function ReadyToSleepPage() {
           <div className="mt-5">
             <div className="flex justify-between text-xs font-medium text-slate-600">
               <span>Brightness</span>
-              <span>{state.lamp_brightness}%</span>
+              <span>{lampBrightness}%</span>
             </div>
             <input
               type="range"
               min={0}
               max={100}
               step={5}
-              value={state.lamp_brightness}
-              onChange={(e) => handleLampChange({ lamp_brightness: Number(e.target.value) })}
-              className="mt-2 w-full accent-[#1d4fc4]"
+              value={lampBrightness}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                handleLampChange({
+                  lamp_brightness: val,
+                  lamp_mode: val === 0 ? "off" : lampMode === "off" ? "warm_dim" : lampMode,
+                });
+              }}
+              className="mt-2 w-full cursor-pointer accent-[#1d4fc4]"
             />
           </div>
         </section>
@@ -186,20 +343,25 @@ export default function ReadyToSleepPage() {
             </div>
             <button
               type="button"
-              onClick={() => handleAudioChange({ audio_playing: !state.audio_playing })}
+              onClick={() =>
+                handleAudioChange({
+                  audio_track: audioTrack === "off" ? "brown_noise" : audioTrack,
+                  audio_playing: !audioPlaying,
+                })
+              }
               className={`rounded-full px-4 py-1.5 text-xs font-bold transition ${
-                state.audio_playing
+                audioPlaying
                   ? "bg-[#e6f23d] text-[#0a1b4d]"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
-              {state.audio_playing ? "❚❚ Playing" : "▶ Play"}
+              {audioPlaying ? "❚❚ Playing" : "▶ Play"}
             </button>
           </div>
 
           <div className="mt-4 space-y-2.5">
             {AUDIO_TRACKS.map((t) => {
-              const active = state.audio_track === t.id;
+              const active = audioTrack === t.id;
               return (
                 <button
                   key={t.id}

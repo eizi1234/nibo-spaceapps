@@ -30,6 +30,44 @@ export interface ReadyToSleepState {
 
 const patch = (body: unknown): RequestInit => ({ method: "PATCH", body: JSON.stringify(body) });
 
+export interface SleepPlanSimulation {
+  shift_minutes: number;
+  nap_minutes: number;
+  crew: {
+    id: string;
+    name: string;
+    current_score: number;
+    projected_score: number;
+    current_gate: "GO" | "CAUTION" | "HOLD";
+    projected_gate: "GO" | "CAUTION" | "HOLD";
+  }[];
+}
+
+export interface CrewMemberSummary {
+  id: string;
+  name: string;
+  title: string;
+  role: "crew" | "commander";
+  readiness_score: number;
+  readiness_gate: "GO" | "CAUTION" | "HOLD";
+  sleep_debt_hours: number;
+  phase_shift_hours: number;
+  checkin_done: boolean;
+  next_task?: string;
+}
+
+export interface TaskSwapSuggestion {
+  id: string;
+  task_name: string;
+  when_label: string;
+  from_user_id: string;
+  from_user_name: string;
+  to_user_id: string;
+  to_user_name: string;
+  reason: string;
+  applied?: boolean;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -99,6 +137,19 @@ export const api = {
     request<ReadyToSleepState>("/ready-to-sleep/audio", patch(body), { day }),
   applyLightPlan: (day: number) =>
     request<{ ok: boolean; applied: boolean; day: number }>("/ready-to-sleep/light-plan/apply", post({}), { day }),
-
+  crewRoster: (ctx: Ctx) =>
+    request<CrewMemberSummary[]>("/crew", {}, { ...ctx }),
+  crewSwaps: (ctx: Ctx) =>
+    request<TaskSwapSuggestion[]>("/crew/swaps", {}, { ...ctx }),
+  applySwap: (swapId: string, ctx: Ctx) =>
+    request<{ ok: boolean }>(`/crew/swaps/${swapId}/apply`, post({}), { ...ctx }),
+  restRequests: (ctx: Ctx) =>
+    request<RestRequest[]>("/rest-requests", {}, { ...ctx }),
+  decideRestRequest: (rid: string, decision: "approved" | "declined", ctx: Ctx) =>
+    request<RestRequest>(`/rest-requests/${rid}/decision`, post({ decision }), { ...ctx }),
+  simulateSleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
+    request<SleepPlanSimulation>("/sleep-plan/simulate", post(body), { ...ctx }),
+  applySleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
+    request<{ ok: boolean }>("/sleep-plan/apply", post(body), { ...ctx }),
 };
 
