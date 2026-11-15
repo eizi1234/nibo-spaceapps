@@ -1,5 +1,7 @@
 // Pembungkus pemanggil API backend + penyimpanan token login.
-import type { LoginResponse, OverviewResponse, UserPublic } from "@/types/crew";
+import type {
+  CheckInCreate, CheckInResult, LoginResponse, OverviewResponse, RestRequest, RestRequestCreate, UserPublic,
+} from "@/types/crew";
 import type { Scenario } from "@/types/astronaut";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -59,9 +61,14 @@ export interface Ctx {
   day: number;
 }
 
+const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+
 export const api = {
-  login: (username: string, pin: string) =>
-    request<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify({ username, pin }) }),
+  login: (username: string, pin: string) => request<LoginResponse>("/auth/login", post({ username, pin })),
   me: () => request<UserPublic>("/auth/me"),
   overview: (ctx: Ctx) => request<OverviewResponse>("/overview", {}, { ...ctx }),
+  checkinToday: (ctx: Ctx) => request<CheckInResult | null>("/checkin/today", {}, { ...ctx }),
+  submitCheckin: (body: CheckInCreate, ctx: Ctx) => request<CheckInResult>("/checkin", post(body), { ...ctx }),
+  createRestRequest: (body: RestRequestCreate, ctx: Ctx) =>
+    request<RestRequest>("/rest-requests", post(body), { ...ctx }),
 };

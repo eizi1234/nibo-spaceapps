@@ -15,12 +15,12 @@ def readiness_gate(readiness_score: float) -> ReadinessGate:
 def recommend(f: WearableFeatures, stress: CognitiveStress, circ: Circadian) -> List[str]:
     actions: List[str] = []
     if f.sleep_debt_hours > 2:
-        actions.append(f"Sleep debt {f.sleep_debt_hours:.1f} jam: jadwalkan tidur pemulihan 60-90 menit lebih awal.")
+        actions.append(f"Sleep debt is {f.sleep_debt_hours:.1f} h: go to bed 60-90 minutes earlier tonight to recover.")
     if abs(circ.phase_shift_hours) >= 1:
-        arah = "mundur" if circ.phase_shift_hours > 0 else "maju"
-        actions.append(f"Ritme sirkadian bergeser {arah} {abs(circ.phase_shift_hours):.1f} jam: geser jadwal tidur bertahap 30 menit/hari dan atur pencahayaan.")
+        side = "late" if circ.phase_shift_hours > 0 else "early"
+        actions.append(f"Your body clock is {abs(circ.phase_shift_hours):.1f} h {side}: move bedtime 30 minutes a day and adjust your lighting.")
     if f.workload_hours > 10:
-        actions.append("Beban kerja tinggi: kurangi persiapan EVA/tugas kritis ~20% atau bagi ke anggota kru lain.")
+        actions.append("Heavy workload: cut EVA preparation by about 20% or share it with a crewmate.")
     if stress.risk_level.value == "HIGH":
-        actions.append("Tunda aktivitas kritis sampai readiness membaik dan konsultasikan dengan flight surgeon.")
-    return actions or ["Kondisi stabil: pertahankan rutinitas saat ini."]
+        actions.append("Postpone critical tasks until your readiness improves and talk to the flight surgeon first.")
+    return actions or ["You are on track. Keep your usual routine."]
