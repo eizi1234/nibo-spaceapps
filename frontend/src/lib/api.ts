@@ -17,6 +17,19 @@ export const tokenStore = {
   clear: (): void => window.localStorage.removeItem(TOKEN_KEY),
 };
 
+export interface ReadyToSleepState {
+  lamp_mode: "warm_dim" | "off" | "bright";
+  lamp_brightness: number;
+  cabin_temp_c: number;
+  cabin_co2_ppm: number;
+  cabin_noise_db: number;
+  audio_track: "brown_noise" | "deep_space" | "off";
+  audio_playing: boolean;
+  light_plan_applied: boolean;
+}
+
+const patch = (body: unknown): RequestInit => ({ method: "PATCH", body: JSON.stringify(body) });
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -78,7 +91,14 @@ export const api = {
     request<SleepDay[]>(`/users/${userId}/sleep-history`, {}, { ...ctx, days }),
   bodyClock: (userId: string, ctx: Ctx, days = 14) =>
     request<BodyClockPoint[]>(`/users/${userId}/body-clock`, {}, { ...ctx, days }),
+  readyToSleep: (day: number) =>
+    request<ReadyToSleepState>("/ready-to-sleep", {}, { day }),
+  updateLamp: (body: { lamp_mode?: string; lamp_brightness?: number }, day: number) =>
+    request<ReadyToSleepState>("/ready-to-sleep/lamp", patch(body), { day }),
+  updateAudio: (body: { audio_track?: string; audio_playing?: boolean }, day: number) =>
+    request<ReadyToSleepState>("/ready-to-sleep/audio", patch(body), { day }),
   applyLightPlan: (day: number) =>
     request<{ ok: boolean; applied: boolean; day: number }>("/ready-to-sleep/light-plan/apply", post({}), { day }),
+
 };
 
