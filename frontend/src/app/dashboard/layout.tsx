@@ -15,10 +15,9 @@ const SCENARIOS: { value: Scenario; label: string }[] = [
   { value: "chaotic_schedule", label: "Chaotic schedule" },
 ];
 
-// Tambahkan menu baru di sini setelah halamannya dibuat.
-// roles: siapa yang boleh melihat menu itu.
 const NAV: { href: string; label: string; roles: UserPublic["role"][] }[] = [
   { href: "/dashboard", label: "Overview", roles: ["crew", "commander"] },
+  { href: "/dashboard/checkin", label: "Daily check-in", roles: ["crew", "commander"] },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

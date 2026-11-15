@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import GateBadge from "@/components/GateBadge";
 import { api, ApiError } from "@/lib/api";
@@ -80,16 +81,26 @@ export default function OverviewPage() {
           </p>
         </section>
 
-        <section className={`${CARD} bg-[#e6f23d]/80`} aria-label="Daily check-in">
-          <p className="text-sm text-[#0a1b4d]/70">Daily check-in</p>
-          <p className="mt-2 text-xl font-bold text-[#0a1b4d]">
-            {data.checkin_done ? "Done today" : "Not done yet today"}
-          </p>
-          <p className="mt-1 text-sm text-[#0a1b4d]/70">
-            {data.checkin_done
-              ? "Your answers are included in the score."
-              : "About 4 minutes: reaction test first, then 3 questions."}
-          </p>
+        <section className={`${CARD} flex flex-col justify-between bg-[#e6f23d]/80`} aria-label="Daily check-in">
+          <div>
+            <p className="text-sm text-[#0a1b4d]/70">Daily check-in</p>
+            <p className="mt-2 text-xl font-bold text-[#0a1b4d]">
+              {data.checkin_done ? "Done today" : "Not done yet today"}
+            </p>
+            <p className="mt-1 text-sm text-[#0a1b4d]/70">
+              {data.checkin_done
+                ? "Your answers are included in the score."
+                : "About 4 minutes: reaction test first, then 3 questions."}
+            </p>
+          </div>
+          <div>
+            <Link
+              href="/dashboard/checkin"
+              className="mt-4 inline-flex items-center rounded-full bg-[#0b2a6f] px-4 py-2 text-xs font-bold text-white hover:brightness-110"
+            >
+              {data.checkin_done ? "View check-in >" : "Start check-in >"}
+            </Link>
+          </div>
         </section>
 
         <section className={CARD} aria-label="Next critical activity">
