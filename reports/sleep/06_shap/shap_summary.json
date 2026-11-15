@@ -1,0 +1,172 @@
+{
+  "status": "completed",
+  "method": "CatBoost native TreeSHAP",
+  "model": "catboost",
+  "feature_set": "E5",
+  "partition": "validation",
+  "n_samples": 329,
+  "n_features": 68,
+  "n_participants": 14,
+  "prediction_unit": "minutes",
+  "mean_expected_prediction_minutes": 408.80836507565755,
+  "additivity_verified": true,
+  "max_additivity_error": 5.684341886080802e-14,
+  "top_features": [
+    {
+      "rank": 1,
+      "feature": "sleep_tst_baseline_past28d",
+      "mean_abs_shap_minutes": 8.818860763274786,
+      "mean_signed_shap_minutes": -0.6784595651954328,
+      "std_shap_minutes": 9.083870925836226,
+      "group": "E",
+      "unit": "minutes",
+      "relative_importance_pct": 14.553586704495238
+    },
+    {
+      "rank": 2,
+      "feature": "sleep_tst_mean_7d",
+      "mean_abs_shap_minutes": 8.57035895180117,
+      "mean_signed_shap_minutes": -0.4527003228269182,
+      "std_shap_minutes": 9.59500463578449,
+      "group": "A",
+      "unit": "minutes",
+      "relative_importance_pct": 14.143489214968435
+    },
+    {
+      "rank": 3,
+      "feature": "sleep_tst_mean_3d",
+      "mean_abs_shap_minutes": 4.087002558913636,
+      "mean_signed_shap_minutes": -0.3230751504779305,
+      "std_shap_minutes": 5.105553988653912,
+      "group": "A",
+      "unit": "minutes",
+      "relative_importance_pct": 6.7446972686476645
+    },
+    {
+      "rank": 4,
+      "feature": "sleep_tst_prev",
+      "mean_abs_shap_minutes": 3.4362844239056054,
+      "mean_signed_shap_minutes": -0.5452315507035891,
+      "std_shap_minutes": 5.997571031902117,
+      "group": "A",
+      "unit": "minutes",
+      "relative_importance_pct": 5.670830354061055
+    },
+    {
+      "rank": 5,
+      "feature": "sleep_tst_sd_7d",
+      "mean_abs_shap_minutes": 3.2241073231757746,
+      "mean_signed_shap_minutes": 0.10989084398402835,
+      "std_shap_minutes": 4.234486167813438,
+      "group": "A",
+      "unit": "minutes",
+      "relative_importance_pct": 5.320678796499402
+    },
+    {
+      "rank": 6,
+      "feature": "rhr_baseline_past28d",
+      "mean_abs_shap_minutes": 2.314991812387742,
+      "mean_signed_shap_minutes": 0.22233486305410574,
+      "std_shap_minutes": 3.076171503903813,
+      "group": "C",
+      "unit": "bpm",
+      "relative_importance_pct": 3.8203839437046105
+    },
+    {
+      "rank": 7,
+      "feature": "stress_prev",
+      "mean_abs_shap_minutes": 2.2238001216270127,
+      "mean_signed_shap_minutes": -0.24859190869103234,
+      "std_shap_minutes": 3.1565552474394147,
+      "group": "B",
+      "unit": "ordinal 1..5",
+      "relative_importance_pct": 3.6698921496009276
+    },
+    {
+      "rank": 8,
+      "feature": "rhr_prev",
+      "mean_abs_shap_minutes": 2.1603972713054485,
+      "mean_signed_shap_minutes": 0.13436049922696852,
+      "std_shap_minutes": 2.581444847017925,
+      "group": "C",
+      "unit": "bpm",
+      "relative_importance_pct": 3.565259714161005
+    },
+    {
+      "rank": 9,
+      "feature": "steps_prev",
+      "mean_abs_shap_minutes": 1.857228214908317,
+      "mean_signed_shap_minutes": 0.14524938958332306,
+      "std_shap_minutes": 2.895420990668792,
+      "group": "D",
+      "unit": "steps",
+      "relative_importance_pct": 3.0649459812614235
+    },
+    {
+      "rank": 10,
+      "feature": "sleep_reference_sin",
+      "mean_abs_shap_minutes": 1.840717576803126,
+      "mean_signed_shap_minutes": 0.5739189103791962,
+      "std_shap_minutes": 5.8867329388637115,
+      "group": "E",
+      "unit": "unit circle",
+      "relative_importance_pct": 3.037698810718591
+    }
+  ],
+  "group_importance": [
+    {
+      "group": "A",
+      "group_name": "Sleep History",
+      "n_features": 18,
+      "sum_mean_abs_shap_minutes": 24.609184498360403,
+      "mean_abs_net_group_shap_minutes": 14.780487779347396,
+      "mean_signed_group_shap_minutes": -1.6075424272134153,
+      "importance_share_pct": 40.61203708026484
+    },
+    {
+      "group": "E",
+      "group_name": "Personalization",
+      "n_features": 15,
+      "sum_mean_abs_shap_minutes": 17.543904648226498,
+      "mean_abs_net_group_shap_minutes": 11.093170918244333,
+      "mean_signed_group_shap_minutes": -1.5896214037846768,
+      "importance_share_pct": 28.952349321200604
+    },
+    {
+      "group": "B",
+      "group_name": "Wellness",
+      "n_features": 16,
+      "sum_mean_abs_shap_minutes": 7.819988308939117,
+      "mean_abs_net_group_shap_minutes": 4.253643985997563,
+      "mean_signed_group_shap_minutes": -0.9231601726641525,
+      "importance_share_pct": 12.905167791766212
+    },
+    {
+      "group": "C",
+      "group_name": "Physiology",
+      "n_features": 9,
+      "sum_mean_abs_shap_minutes": 7.641032670466867,
+      "mean_abs_net_group_shap_minutes": 4.9711660996952265,
+      "mean_signed_group_shap_minutes": 0.4173587324197169,
+      "importance_share_pct": 12.609840938255818
+    },
+    {
+      "group": "D",
+      "group_name": "Activity",
+      "n_features": 10,
+      "sum_mean_abs_shap_minutes": 2.9816793679526783,
+      "mean_abs_net_group_shap_minutes": 2.7612206129448493,
+      "mean_signed_group_shap_minutes": 0.24326872849846373,
+      "importance_share_pct": 4.920604868512511
+    }
+  ],
+  "freeze_fingerprint": "bdbe21ed03d1101ad97b862c3ee5bfb7a395fcf59766f2a2bcdb9aab30d14558",
+  "checkpoint_sha256": "c6ba5340adf983eb281da3e362d9e386c7f4c1e4d9a47c38b53f6689646917ca",
+  "shap_runtime_seconds": 0.11647689600067679,
+  "total_runtime_seconds": 0.16330851699967752,
+  "started_at_utc": "2026-11-15T12:57:33.844920+00:00",
+  "finished_at_utc": "2026-11-15T12:57:34.009814+00:00",
+  "test_used": false,
+  "model_retrained": false,
+  "interpretation": "SHAP values explain the contribution of input features to model predictions. They do not establish causal effects, clinical confidence or medical recommendations."
+}

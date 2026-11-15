@@ -1,0 +1,6 @@
+*.joblib
+*.pkl
+*.parquet
+*.sqlite*
+private_runs/
+predictions/

@@ -1,0 +1,26 @@
+{
+  "frozen_payload": {
+    "approved_by": null,
+    "frozen_at_utc": null,
+    "chronological_selection_frozen": false,
+    "config_fingerprint": null,
+    "preprocessing_fingerprint": null,
+    "schema_fingerprint": null,
+    "split_fingerprint": null,
+    "dataset_fingerprint": null,
+    "environment_fingerprint": null,
+    "authorized_protocols": [],
+    "nested_selection_protocol": "groupkfold_inner_full_matrix_v1",
+    "selection": {
+      "model_name": null,
+      "experiment_id": null,
+      "params": {},
+      "ordered_features": [],
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "fit_policy": "train_only_no_validation_refit"
+    }
+  },
+  "freeze_fingerprint": null,
+  "note": "No selection or approval is supplied. Compute payload hash after human review and pin it in approval_record.approved_freeze_fingerprint."
+}

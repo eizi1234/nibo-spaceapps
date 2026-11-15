@@ -1,0 +1,14 @@
+{
+  "completed_studies": 4,
+  "completed_trials": 160,
+  "completed_model_fits": 324,
+  "total_runtime_seconds": 368.17062130700015,
+  "total_runtime_minutes": 6.136177021783336,
+  "internal_winner": "T1",
+  "best_february_configuration": "ORIGINAL",
+  "best_february_mae": 54.65611060642733,
+  "original_february_mae": 54.65611060642733,
+  "b3_february_mae": 55.07142857142857,
+  "test_used": false,
+  "production_export": false
+}

@@ -1,0 +1,39 @@
+{
+  "freeze_fingerprint": "bdbe21ed03d1101ad97b862c3ee5bfb7a395fcf59766f2a2bcdb9aab30d14558",
+  "improvement_vs_persistence_pct": 28.962809826612446,
+  "mae_minutes": 53.94266633537946,
+  "mean_signed_error_minutes": -3.272394047591071,
+  "n": 296,
+  "participant_cluster_bootstrap": {
+    "intervals": {
+      "improvement_vs_persistence_pct": {
+        "lower": 21.768530464526098,
+        "upper": 35.49479812438709,
+        "valid_replicates": 1000
+      },
+      "mae_minutes": {
+        "lower": 44.58466833928279,
+        "upper": 63.83908470005683,
+        "valid_replicates": 1000
+      },
+      "participant_macro_mae_minutes": {
+        "lower": 43.92357521847068,
+        "upper": 65.19618740485572,
+        "valid_replicates": 1000
+      },
+      "rmse_minutes": {
+        "lower": 60.73414123936851,
+        "upper": 83.52741763374796,
+        "valid_replicates": 1000
+      }
+    },
+    "invalid_replicates": 0,
+    "replicates": 1000,
+    "seed": 42,
+    "warning": "Participant bootstrap; small subject count limits interval stability"
+  },
+  "participant_macro_mae_minutes": 54.088731713446876,
+  "participants": 13,
+  "persistence_mae_minutes": 75.9358108108108,
+  "rmse_minutes": 72.87761965388194
+}

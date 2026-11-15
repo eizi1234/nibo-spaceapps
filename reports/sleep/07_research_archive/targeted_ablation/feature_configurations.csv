@@ -1,0 +1,7 @@
+experiment_id,description,groups,n_features,n_removed
+F1,Sleep + Personalization,A+E,33,35
+F2,Sleep + Physiology + Personalization,A+C+E,42,26
+F3,E5 without Activity,A+B+C+E,58,10
+F4,E5 without Daily Wellness,A+C+D+E,52,16
+F5,E5 without Sleep Timing,A+B+C+D+E,57,11
+F6,Full E5 Control,A+B+C+D+E,68,0

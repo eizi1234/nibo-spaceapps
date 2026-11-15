@@ -1,0 +1,559 @@
+{
+  "project": "NASA Space Apps \u2014 Astronaut Health Monitoring",
+  "agent": "Agent 4 \u2014 Sleep Prediction",
+  "task": "next_main_sleep_tst_prediction",
+  "model_name": "catboost",
+  "model_version": "sleep-tst-v1",
+  "feature_set": "E5",
+  "n_features": 68,
+  "target": "target_sleep_tst_minutes",
+  "target_unit": "minutes",
+  "prediction_horizon": "next_main_sleep",
+  "model_selection": {
+    "selection_metric": "chronological_validation_mae",
+    "fit_policy": "train_only_no_validation_refit",
+    "params": {
+      "depth": 6,
+      "iterations": 126,
+      "l2_leaf_reg": 1.0525841796041846,
+      "learning_rate": 0.059718183457477945
+    },
+    "ordered_features": [
+      "sleep_tst_prev",
+      "sleep_score_prev",
+      "sleep_midpoint_sin_prev",
+      "sleep_midpoint_cos_prev",
+      "sleep_observed_n_3d",
+      "sleep_tst_mean_3d",
+      "sleep_observed_n_7d",
+      "sleep_tst_mean_7d",
+      "sleep_tst_sd_7d",
+      "fatigue_prev",
+      "stress_prev",
+      "mood_prev",
+      "readiness_prev",
+      "rhr_prev",
+      "rhr_baseline_past28d",
+      "rhr_observed_n_28d",
+      "rhr_delta_past28d",
+      "sleep_tst_baseline_past28d",
+      "sleep_tst_observed_n_28d",
+      "sleep_tst_delta_past28d",
+      "steps_prev",
+      "activity_coverage_prev",
+      "active_minutes_prev",
+      "sleep_reference_observed_n_28d",
+      "sleep_reference_concentration",
+      "sleep_reference_sin",
+      "sleep_reference_cos",
+      "fatigue_observed_n_28d",
+      "fatigue_baseline_past28d",
+      "sleep_age_days",
+      "rhr_age_days",
+      "fatigue_age_days",
+      "stress_age_days",
+      "mood_age_days",
+      "readiness_age_days",
+      "steps_age_days",
+      "active_minutes_age_days",
+      "sleep_tst_prev_missing",
+      "sleep_score_prev_missing",
+      "sleep_midpoint_sin_prev_missing",
+      "sleep_midpoint_cos_prev_missing",
+      "sleep_tst_mean_3d_missing",
+      "sleep_tst_mean_7d_missing",
+      "sleep_tst_sd_7d_missing",
+      "fatigue_prev_missing",
+      "stress_prev_missing",
+      "mood_prev_missing",
+      "readiness_prev_missing",
+      "rhr_prev_missing",
+      "rhr_baseline_past28d_missing",
+      "rhr_delta_past28d_missing",
+      "sleep_tst_baseline_past28d_missing",
+      "sleep_tst_delta_past28d_missing",
+      "steps_prev_missing",
+      "active_minutes_prev_missing",
+      "activity_coverage_prev_missing",
+      "sleep_reference_sin_missing",
+      "sleep_reference_cos_missing",
+      "sleep_reference_concentration_missing",
+      "fatigue_baseline_past28d_missing",
+      "sleep_age_days_missing",
+      "rhr_age_days_missing",
+      "steps_age_days_missing",
+      "active_minutes_age_days_missing",
+      "fatigue_age_days_missing",
+      "stress_age_days_missing",
+      "mood_age_days_missing",
+      "readiness_age_days_missing"
+    ],
+    "additional_experiments": [
+      "Personalized residual learning",
+      "Targeted feature ablation F1-F6",
+      "Advanced CatBoost tuning F5/F6"
+    ],
+    "selected": "Original CatBoost E5 Tuned",
+    "additional_experiments_selected": false,
+    "test_used_for_selection": false
+  },
+  "data": {
+    "preprocessing_version": "pmdata-preprocessing-1.0.0",
+    "eligible_samples": 1682,
+    "participants": 15,
+    "split_counts": {
+      "test": 296,
+      "train": 1057,
+      "validation": 329
+    },
+    "fingerprints": {
+      "preprocessing_fingerprint": "df1cbda27f1148256de19d2981fdaf0c98ac284fb850be647eeb82580383d4e2",
+      "schema_fingerprint": "e1f1804414cbab43cb35dbdc32ed6439dd339fb793b4894a16e8dcc6622a54b3",
+      "split_fingerprint": "38477d278ade27e147d5f0122a6c71922fc72746468a7f0eb1a5ce9c5705863d",
+      "dataset_fingerprint": "b484bae8ff97b19302c3356f3b29a3df1ddb91499624c78fe7e56e5b1c93b4f8"
+    },
+    "source": "PMData"
+  },
+  "chronological_validation": {
+    "period": "February 2020",
+    "mae_minutes": 54.65611060642733,
+    "rmse_minutes": 77.3695875406227,
+    "participant_macro_mae_minutes": 55.23110107395445,
+    "mean_signed_error_minutes": -0.7425168774208892,
+    "improvement_vs_persistence_pct": 32.38376931069191,
+    "persistence_mae_minutes": 80.83282674772036,
+    "n": 329,
+    "participants": 14,
+    "b3_mae_minutes": 55.07142857142857,
+    "improvement_vs_b3_pct": 0.7541441647233861,
+    "baselines": [
+      {
+        "experiment_id": "B0",
+        "mae_minutes": 62.33738601823708,
+        "rmse_minutes": 83.68323905347022,
+        "participant_macro_mae_minutes": 62.37295351473923,
+        "mean_signed_error_minutes": 0.9088145896656536,
+        "n": 329,
+        "participants": 14,
+        "improvement_vs_persistence_pct": 22.88110100022561,
+        "persistence_mae_minutes": 80.83282674772036,
+        "available_n": 329,
+        "fallback_n": 0
+      },
+      {
+        "experiment_id": "B1",
+        "mae_minutes": 80.83282674772036,
+        "rmse_minutes": 111.7965477334,
+        "participant_macro_mae_minutes": 83.02830498866214,
+        "mean_signed_error_minutes": -3.31306990881459,
+        "n": 329,
+        "participants": 14,
+        "improvement_vs_persistence_pct": 0.0,
+        "persistence_mae_minutes": 80.83282674772036,
+        "available_n": 329,
+        "fallback_n": 0
+      },
+      {
+        "experiment_id": "B2",
+        "mae_minutes": 57.67933130699088,
+        "rmse_minutes": 81.43889778814746,
+        "participant_macro_mae_minutes": 58.79691762602476,
+        "mean_signed_error_minutes": -3.767477203647416,
+        "n": 329,
+        "participants": 14,
+        "improvement_vs_persistence_pct": 28.64367902534406,
+        "persistence_mae_minutes": 80.83282674772036,
+        "available_n": 326,
+        "fallback_n": 3
+      },
+      {
+        "experiment_id": "B3",
+        "mae_minutes": 55.07142857142857,
+        "rmse_minutes": 78.77411340186089,
+        "participant_macro_mae_minutes": 55.87146825396825,
+        "mean_signed_error_minutes": -2.7006079027355625,
+        "n": 329,
+        "participants": 14,
+        "improvement_vs_persistence_pct": 31.86997067007596,
+        "persistence_mae_minutes": 80.83282674772036,
+        "available_n": 329,
+        "fallback_n": 0
+      }
+    ]
+  },
+  "chronological_test": {
+    "period": "March 2020",
+    "mae_minutes": 53.94266633537946,
+    "rmse_minutes": 72.87761965388194,
+    "participant_macro_mae_minutes": 54.088731713446876,
+    "mean_signed_error_minutes": -3.272394047591071,
+    "improvement_vs_persistence_pct": 28.962809826612446,
+    "persistence_mae_minutes": 75.9358108108108,
+    "n": 296,
+    "participants": 13,
+    "b3_mae_minutes": 55.582770270270274,
+    "improvement_vs_b3_pct": 2.95074161815944,
+    "mae_change_vs_validation_pct": -1.3053330416891729,
+    "baselines": [
+      {
+        "experiment_id": "B0",
+        "mae_minutes": 60.31418918918919,
+        "rmse_minutes": 77.96263398126885,
+        "participant_macro_mae_minutes": 59.17582944368898,
+        "mean_signed_error_minutes": -4.888513513513513,
+        "n": 296,
+        "participants": 13,
+        "improvement_vs_persistence_pct": 20.57214041019709,
+        "persistence_mae_minutes": 75.9358108108108,
+        "available_n": 296,
+        "fallback_n": 0
+      },
+      {
+        "experiment_id": "B1",
+        "mae_minutes": 75.9358108108108,
+        "rmse_minutes": 103.84696706003297,
+        "participant_macro_mae_minutes": 77.33595893515626,
+        "mean_signed_error_minutes": -2.935810810810811,
+        "n": 296,
+        "participants": 13,
+        "improvement_vs_persistence_pct": 0.0,
+        "persistence_mae_minutes": 75.9358108108108,
+        "available_n": 296,
+        "fallback_n": 0
+      },
+      {
+        "experiment_id": "B2",
+        "mae_minutes": 57.68074324324324,
+        "rmse_minutes": 79.81306813169505,
+        "participant_macro_mae_minutes": 59.627776103495165,
+        "mean_signed_error_minutes": 0.0084459459459459,
+        "n": 296,
+        "participants": 13,
+        "improvement_vs_persistence_pct": 24.040129910575253,
+        "persistence_mae_minutes": 75.9358108108108,
+        "available_n": 288,
+        "fallback_n": 8
+      },
+      {
+        "experiment_id": "B3",
+        "mae_minutes": 55.582770270270274,
+        "rmse_minutes": 77.68357182236848,
+        "participant_macro_mae_minutes": 57.39712080561579,
+        "mean_signed_error_minutes": -7.163851351351352,
+        "n": 296,
+        "participants": 13,
+        "improvement_vs_persistence_pct": 26.802954130889344,
+        "persistence_mae_minutes": 75.9358108108108,
+        "available_n": 284,
+        "fallback_n": 12
+      }
+    ],
+    "participant_cluster_bootstrap": {
+      "intervals": {
+        "improvement_vs_persistence_pct": {
+          "lower": 21.768530464526098,
+          "upper": 35.49479812438709,
+          "valid_replicates": 1000
+        },
+        "mae_minutes": {
+          "lower": 44.58466833928279,
+          "upper": 63.83908470005683,
+          "valid_replicates": 1000
+        },
+        "participant_macro_mae_minutes": {
+          "lower": 43.92357521847068,
+          "upper": 65.19618740485572,
+          "valid_replicates": 1000
+        },
+        "rmse_minutes": {
+          "lower": 60.73414123936851,
+          "upper": 83.52741763374796,
+          "valid_replicates": 1000
+        }
+      },
+      "invalid_replicates": 0,
+      "replicates": 1000,
+      "seed": 42,
+      "warning": "Participant bootstrap; small subject count limits interval stability"
+    }
+  },
+  "grouped_evaluation": {
+    "completed": true,
+    "outer_folds": 4,
+    "inner_folds": 3,
+    "protocol": "nested_groupkfold; separate from chronology; no outer-based reselection",
+    "metrics": {
+      "improvement_vs_persistence_pct": 24.141585879054617,
+      "mae_minutes": 56.578109699599274,
+      "mean_signed_error_minutes": -0.045481091111636764,
+      "n": 1682,
+      "participant_macro_mae_minutes": 56.465016270884355,
+      "participants": 15,
+      "persistence_mae_minutes": 74.58382877526753,
+      "rmse_minutes": 77.3048415402288
+    },
+    "participant_cluster_bootstrap": {
+      "intervals": {
+        "improvement_vs_persistence_pct": {
+          "lower": 21.431189299747707,
+          "upper": 26.72415842153848,
+          "valid_replicates": 1000
+        },
+        "mae_minutes": {
+          "lower": 50.66215711456196,
+          "upper": 63.42924299160924,
+          "valid_replicates": 1000
+        },
+        "participant_macro_mae_minutes": {
+          "lower": 50.461756306174486,
+          "upper": 63.573093064700636,
+          "valid_replicates": 1000
+        },
+        "rmse_minutes": {
+          "lower": 68.55314579970138,
+          "upper": 86.62270221829537,
+          "valid_replicates": 1000
+        }
+      },
+      "invalid_replicates": 0,
+      "replicates": 1000,
+      "seed": 42,
+      "warning": "Participant bootstrap; small subject count limits interval stability"
+    },
+    "interpretation": "Evaluates the nested learning pipeline, not the identical frozen CatBoost checkpoint."
+  },
+  "sensitivity_validation": {
+    "completed": true,
+    "protected_sensitivity_test_completed": false,
+    "results": [
+      {
+        "scenario_id": "primary",
+        "scenario_n": 329,
+        "matched_n": 329,
+        "mae_minutes": 54.65611060642733,
+        "rmse_minutes": 77.3695875406227,
+        "participant_macro_mae_minutes": 55.23110107395445,
+        "mae_change_vs_reference_pct": 0.0,
+        "target_changes": 0,
+        "changed_feature_values": 0
+      },
+      {
+        "scenario_id": "offset_plus1",
+        "scenario_n": 329,
+        "matched_n": 329,
+        "mae_minutes": 55.38978595625132,
+        "rmse_minutes": 78.03102711070339,
+        "participant_macro_mae_minutes": 56.3080248023234,
+        "mae_change_vs_reference_pct": 1.342348260210292,
+        "target_changes": 0,
+        "changed_feature_values": 34
+      },
+      {
+        "scenario_id": "offset_plus2",
+        "scenario_n": 329,
+        "matched_n": 329,
+        "mae_minutes": 55.517382908103926,
+        "rmse_minutes": 78.00014192711072,
+        "participant_macro_mae_minutes": 56.375643548296935,
+        "mae_change_vs_reference_pct": 1.5758023981591374,
+        "target_changes": 0,
+        "changed_feature_values": 93
+      },
+      {
+        "scenario_id": "wellness_lag2",
+        "scenario_n": 329,
+        "matched_n": 329,
+        "mae_minutes": 56.47786447429436,
+        "rmse_minutes": 79.41349281401067,
+        "participant_macro_mae_minutes": 57.304852456785895,
+        "mae_change_vs_reference_pct": 3.3331202086172462,
+        "target_changes": 0,
+        "changed_feature_values": 2267
+      }
+    ],
+    "interpretation": "Scenario-specific refits with unchanged frozen model family and hyperparameters."
+  },
+  "explainability": {
+    "completed": true,
+    "method": "CatBoost native TreeSHAP",
+    "partition": "validation",
+    "n_samples": 329,
+    "additivity_verified": true,
+    "max_additivity_error": 5.684341886080802e-14,
+    "top_features": [
+      {
+        "rank": 1,
+        "feature": "sleep_tst_baseline_past28d",
+        "mean_abs_shap_minutes": 8.818860763274786,
+        "mean_signed_shap_minutes": -0.6784595651954328,
+        "std_shap_minutes": 9.083870925836226,
+        "group": "E",
+        "unit": "minutes",
+        "relative_importance_pct": 14.553586704495238
+      },
+      {
+        "rank": 2,
+        "feature": "sleep_tst_mean_7d",
+        "mean_abs_shap_minutes": 8.57035895180117,
+        "mean_signed_shap_minutes": -0.4527003228269182,
+        "std_shap_minutes": 9.59500463578449,
+        "group": "A",
+        "unit": "minutes",
+        "relative_importance_pct": 14.143489214968437
+      },
+      {
+        "rank": 3,
+        "feature": "sleep_tst_mean_3d",
+        "mean_abs_shap_minutes": 4.087002558913636,
+        "mean_signed_shap_minutes": -0.3230751504779305,
+        "std_shap_minutes": 5.105553988653912,
+        "group": "A",
+        "unit": "minutes",
+        "relative_importance_pct": 6.7446972686476645
+      },
+      {
+        "rank": 4,
+        "feature": "sleep_tst_prev",
+        "mean_abs_shap_minutes": 3.4362844239056054,
+        "mean_signed_shap_minutes": -0.5452315507035891,
+        "std_shap_minutes": 5.997571031902117,
+        "group": "A",
+        "unit": "minutes",
+        "relative_importance_pct": 5.670830354061055
+      },
+      {
+        "rank": 5,
+        "feature": "sleep_tst_sd_7d",
+        "mean_abs_shap_minutes": 3.224107323175774,
+        "mean_signed_shap_minutes": 0.1098908439840283,
+        "std_shap_minutes": 4.234486167813438,
+        "group": "A",
+        "unit": "minutes",
+        "relative_importance_pct": 5.320678796499402
+      },
+      {
+        "rank": 6,
+        "feature": "rhr_baseline_past28d",
+        "mean_abs_shap_minutes": 2.314991812387742,
+        "mean_signed_shap_minutes": 0.2223348630541057,
+        "std_shap_minutes": 3.076171503903813,
+        "group": "C",
+        "unit": "bpm",
+        "relative_importance_pct": 3.8203839437046105
+      },
+      {
+        "rank": 7,
+        "feature": "stress_prev",
+        "mean_abs_shap_minutes": 2.2238001216270127,
+        "mean_signed_shap_minutes": -0.2485919086910323,
+        "std_shap_minutes": 3.1565552474394147,
+        "group": "B",
+        "unit": "ordinal 1..5",
+        "relative_importance_pct": 3.669892149600928
+      },
+      {
+        "rank": 8,
+        "feature": "rhr_prev",
+        "mean_abs_shap_minutes": 2.1603972713054485,
+        "mean_signed_shap_minutes": 0.1343604992269685,
+        "std_shap_minutes": 2.581444847017925,
+        "group": "C",
+        "unit": "bpm",
+        "relative_importance_pct": 3.565259714161005
+      },
+      {
+        "rank": 9,
+        "feature": "steps_prev",
+        "mean_abs_shap_minutes": 1.857228214908317,
+        "mean_signed_shap_minutes": 0.145249389583323,
+        "std_shap_minutes": 2.895420990668792,
+        "group": "D",
+        "unit": "steps",
+        "relative_importance_pct": 3.0649459812614235
+      },
+      {
+        "rank": 10,
+        "feature": "sleep_reference_sin",
+        "mean_abs_shap_minutes": 1.840717576803126,
+        "mean_signed_shap_minutes": 0.5739189103791962,
+        "std_shap_minutes": 5.886732938863712,
+        "group": "E",
+        "unit": "unit circle",
+        "relative_importance_pct": 3.037698810718591
+      }
+    ],
+    "feature_groups": [
+      {
+        "group": "A",
+        "group_name": "Sleep History",
+        "n_features": 18,
+        "sum_mean_abs_shap_minutes": 24.609184498360403,
+        "mean_abs_net_group_shap_minutes": 14.780487779347396,
+        "mean_signed_group_shap_minutes": -1.6075424272134151,
+        "importance_share_pct": 40.61203708026484
+      },
+      {
+        "group": "E",
+        "group_name": "Personalization",
+        "n_features": 15,
+        "sum_mean_abs_shap_minutes": 17.543904648226498,
+        "mean_abs_net_group_shap_minutes": 11.093170918244333,
+        "mean_signed_group_shap_minutes": -1.5896214037846768,
+        "importance_share_pct": 28.952349321200604
+      },
+      {
+        "group": "B",
+        "group_name": "Wellness",
+        "n_features": 16,
+        "sum_mean_abs_shap_minutes": 7.819988308939117,
+        "mean_abs_net_group_shap_minutes": 4.253643985997563,
+        "mean_signed_group_shap_minutes": -0.9231601726641524,
+        "importance_share_pct": 12.905167791766212
+      },
+      {
+        "group": "C",
+        "group_name": "Physiology",
+        "n_features": 9,
+        "sum_mean_abs_shap_minutes": 7.641032670466867,
+        "mean_abs_net_group_shap_minutes": 4.9711660996952265,
+        "mean_signed_group_shap_minutes": 0.4173587324197169,
+        "importance_share_pct": 12.609840938255818
+      },
+      {
+        "group": "D",
+        "group_name": "Activity",
+        "n_features": 10,
+        "sum_mean_abs_shap_minutes": 2.9816793679526783,
+        "mean_abs_net_group_shap_minutes": 2.7612206129448493,
+        "mean_signed_group_shap_minutes": 0.2432687284984637,
+        "importance_share_pct": 4.920604868512511
+      }
+    ],
+    "runtime_local_explanations_available": false,
+    "interpretation": "Predictive attribution only, not evidence of causal effects."
+  },
+  "release": {
+    "scope": "private_noncommercial_research_demo",
+    "midpoint_validated": false,
+    "midpoint_output": null,
+    "individual_prediction_uncertainty": null,
+    "clinical_validation": false,
+    "astronaut_domain_validation": false,
+    "freeze_fingerprint": "bdbe21ed03d1101ad97b862c3ee5bfb7a395fcf59766f2a2bcdb9aab30d14558",
+    "source_checkpoint_sha256": "c6ba5340adf983eb281da3e362d9e386c7f4c1e4d9a47c38b53f6689646917ca",
+    "exported_model_sha256": "781644a60a592950aa8e70a6163d2bbab7c4f5d8a74d8577492ace97b1460237",
+    "cpu_reload_verified": true
+  },
+  "limitations": [
+    "Small terrestrial wearable convenience cohort",
+    "Correlated repeated observations per participant",
+    "Wearable-estimated sleep duration",
+    "Unknown participant timezone and ingestion timing",
+    "Repeated development validation use",
+    "Grouped pipeline evaluation differs from fixed-checkpoint new-user validation",
+    "No paired bootstrap interval against B3",
+    "No individual predictive uncertainty model",
+    "PMData license discrepancy remains unresolved"
+  ],
+  "created_at_utc": "2026-11-15T13:33:11.160302+00:00"
+}

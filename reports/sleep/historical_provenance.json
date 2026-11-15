@@ -1,0 +1,10 @@
+{
+  "historical_run_date": "2026-11-15",
+  "historical_code_fingerprint": "a7ecd6c53f344a84b3726244ae542974be5f96d12740fc97e2f078cb83d2a332",
+  "source_checkpoint_sha256": "c6ba5340adf983eb281da3e362d9e386c7f4c1e4d9a47c38b53f6689646917ca",
+  "freeze_fingerprint": "bdbe21ed03d1101ad97b862c3ee5bfb7a395fcf59766f2a2bcdb9aab30d14558",
+  "exported_model_sha256": "781644a60a592950aa8e70a6163d2bbab7c4f5d8a74d8577492ace97b1460237",
+  "historical_results_only": true,
+  "approval_for_new_execution": false,
+  "source_fingerprint_preserved": true
+}
