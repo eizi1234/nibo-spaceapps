@@ -33,7 +33,36 @@ export interface CircadianPrediction {
   optimal_sleep_window: string;
 }
 
+export type ModelStatus = "ok" | "insufficient_data" | "unavailable";
+export type PredictionSource = "ml_model" | "demo_rule";
+
+export interface FatiguePrediction {
+  status: ModelStatus;
+  source?: PredictionSource;
+  model_version?: string | null;
+  prediction_horizon?: string | null;
+  fatigue_risk_score: number | null;
+  fatigue_risk_probability?: number | null;
+  predicted_elevated_fatigue?: boolean | null;
+  decision_threshold?: number | null;
+  input_coverage?: number | null;
+  explanation_available?: boolean;
+}
+
+export interface SleepPrediction {
+  status: ModelStatus;
+  source?: PredictionSource;
+  model_version?: string | null;
+  predicted_sleep_tst_minutes: number | null;
+  predicted_sleep_midpoint_minutes?: number | null;
+  sleep_shortfall_minutes?: number | null;
+  sleep_target_minutes?: number | null;
+  input_coverage?: number | null;
+}
+
 export interface PredictionResponse {
+  fatigue?: FatiguePrediction | null;
+  sleep?: SleepPrediction | null;
   astronaut_id: string;
   scenario: string;
   is_simulated: boolean;

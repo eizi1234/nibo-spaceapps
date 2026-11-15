@@ -98,7 +98,7 @@ export default function SleepManagementPage() {
           setError(null);
         })
         .catch((e: unknown) => {
-          if (id === requestId.current) setError(e instanceof ApiError ? e.message : "Failed to run the prediction.");
+          if (id === requestId.current) setError(e instanceof ApiError ? e.message : "Failed to run the scenario.");
         })
         .finally(() => {
           if (id === requestId.current) setSimulating(false);
@@ -320,7 +320,7 @@ export default function SleepManagementPage() {
                 <h2 id="effect-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
                   Scenario comparison for {who}
                 </h2>
-                <p className="text-xs font-medium leading-[1.4] text-ink-muted">Uses the AI sleep and fatigue forecasts</p>
+                <p className="text-xs font-medium leading-[1.4] text-ink-muted">Demo readiness and illustrative sleep estimates, rule-based</p>
               </div>
               {result ? (
                 <div className="flex flex-col items-stretch gap-3.5 sm:flex-row sm:items-center">
@@ -331,14 +331,14 @@ export default function SleepManagementPage() {
                   <OutcomeCard label="With your change" outcome={result.with_change} accent />
                 </div>
               ) : (
-                <p className="text-[13px] text-ink-secondary">Running the prediction...</p>
+                <p className="text-[13px] text-ink-secondary">Running the scenario...</p>
               )}
             </section>
 
             <section className={`${CARD} flex flex-col gap-3 p-6`} aria-labelledby="clock-heading">
               <div className="flex flex-wrap items-center gap-3.5">
                 <h2 id="clock-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
-                  Sleep schedule alignment, next 5 days
+                  Illustrative schedule alignment, next 5 days
                 </h2>
                 <span className="flex-1" />
                 <span className="flex items-center gap-1.5 text-xs font-medium leading-[1.4] text-ink-secondary">
@@ -352,8 +352,8 @@ export default function SleepManagementPage() {
               <p className="flex items-center gap-2 text-xs font-medium leading-[1.4] text-ink-muted">
                 <Icon name="info-circle" />
                 <span>
-                  Scenario comparison, not a circadian simulation. Model trained on Earth wearable data (PMData), run
-                  on synthetic mission data.
+                  Rule-based scenario comparison on synthetic mission data. Not a circadian simulation, ML forecast or
+                  proven treatment effect.
                 </span>
               </p>
             </section>
@@ -386,7 +386,7 @@ export default function SleepManagementPage() {
             </div>
 
             <div className="flex items-center gap-2 rounded-2xl bg-soft px-4 py-3">
-              <span className="text-[13px] leading-[1.5] text-ink">Readiness tomorrow</span>
+              <span className="text-[13px] leading-[1.5] text-ink">Demo readiness tomorrow</span>
               <span className="flex-1" />
               <GateBadge gate={result.current.gate} />
               <span className="text-[13px] font-semibold text-ink">{Math.round(result.current.score)}</span>
@@ -514,7 +514,7 @@ function OutcomeCard({ label, outcome, accent = false }: { label: string; outcom
         >
           {Math.round(outcome.score)}
         </span>
-        <span className={`text-sm font-medium leading-[1.45] ${accent ? "text-on-accent" : "text-ink-muted"}`}>/100</span>
+        <span className={`text-sm font-medium leading-[1.45] ${accent ? "text-on-accent" : "text-ink-muted"}`}>/100 demo</span>
       </p>
       <dl className="relative flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
@@ -525,7 +525,7 @@ function OutcomeCard({ label, outcome, accent = false }: { label: string; outcom
         </div>
         <div className="flex items-center gap-2">
           <Icon name="moon-sm" className={accent ? "text-on-accent" : "text-brand"} />
-          <dt className={`text-[13px] leading-[1.5] ${text}`}>Predicted sleep (AI)</dt>
+          <dt className={`text-[13px] leading-[1.5] ${text}`}>Est. sleep (not ML)</dt>
           <span className="flex-1" />
           <dd className={`text-[13px] font-semibold leading-[1.3] ${value}`}>
             {outcome.predicted_sleep_hours.toFixed(1)} h

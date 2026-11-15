@@ -12,33 +12,10 @@ import type { OverviewResponse } from "@/types/crew";
 
 const CARD = "glass-card rounded-[24px] p-6";
 
-const FEATURE_META: Record<string, { label: string; icon: IconName; sub: string }> = {
-  sleep_debt_hours: {
-    label: "Sleep debt",
-    icon: "moon",
-    sub: "Accumulated sleep deficit",
-  },
-  schedule_shift_minutes: {
-    label: "Schedule shift",
-    icon: "clock",
-    sub: "Circadian phase offset",
-  },
-  hrv_rmssd_ms: {
-    label: "Heart rate variability",
-    icon: "sun",
-    sub: "Autonomic recovery index",
-  },
-  resting_hr_bpm: {
-    label: "Resting heart rate",
-    icon: "info-circle",
-    sub: "Baseline cardiovascular load",
-  },
-};
-
 const GATE_MESSAGE: Record<ReadinessGate, string> = {
-  GO: "All biometrics aligned. Ready for critical tasks.",
-  CAUTION: "Mild fatigue detected. Pace demanding tasks today.",
-  HOLD: "High fatigue risk. Avoid critical tasks for now.",
+  GO: "Demo rules show no flags for critical tasks. Not a clearance.",
+  CAUTION: "Demo rules suggest pacing demanding tasks today.",
+  HOLD: "Demo rules suggest avoiding critical tasks for now.",
 };
 
 const RING_STROKE: Record<ReadinessGate, string> = {
@@ -85,10 +62,15 @@ export default function OverviewPage() {
     "You woke up an hour ago, so the test now gives a fair result.",
   );
 
+  const ctxKey = `${scenario}:${day}`;
+  const [seenKey, setSeenKey] = useState(ctxKey);
+  if (seenKey !== ctxKey) {
+    setSeenKey(ctxKey);
+    setDoneActions({});
+  }
+
   useEffect(() => {
     let cancelled = false;
-
-    setDoneActions({});
 
     api
       .overview({ scenario, day })
@@ -163,9 +145,28 @@ export default function OverviewPage() {
 
   const stale = data.scenario !== scenario || data.day !== day;
   const score = Math.round(data.readiness_score);
-  const features = data.prediction.cognitive_stress.top_features;
-  const total = features.reduce((sum, f) => sum + f.impact, 0) || 1;
   const recHours = data.baseline.sleep_hours || 7;
+  const fatigue = data.prediction.fatigue ?? null;
+  const fatigueOk = fatigue?.status === "ok" && fatigue.fatigue_risk_score != null;
+  const fatigueNote = !fatigue
+    ? "Not provided by the backend yet"
+    : fatigue.status === "insufficient_data"
+      ? "Insufficient data"
+      : fatigue.status === "unavailable"
+        ? "Unavailable"
+        : fatigue.source === "demo_rule"
+          ? "Demo rule, not ML"
+          : fatigue.model_version ?? "Model 1";
+  const lastNight = data.sleep_7d.length ? data.sleep_7d[data.sleep_7d.length - 1].hours : null;
+  const avgSleep = data.sleep_7d.length
+    ? data.sleep_7d.reduce((sum, d) => sum + d.hours, 0) / data.sleep_7d.length
+    : null;
+  const indicators: { label: string; sub: string; icon: IconName; value: string }[] = [
+    { label: "Sleep last night", sub: "Synthetic wearable record", icon: "moon", value: lastNight != null ? `${lastNight.toFixed(1)} h` : "Unavailable" },
+    { label: "Average sleep, 7 days", sub: `Demo target ${recHours} h`, icon: "clock", value: avgSleep != null ? `${avgSleep.toFixed(1)} h` : "Unavailable" },
+    { label: "Resting heart rate", sub: "Personal baseline", icon: "info-circle", value: data.baseline.resting_hr_bpm != null ? `${Math.round(data.baseline.resting_hr_bpm)} bpm` : "Unavailable" },
+    { label: "Heart rate variability", sub: "Personal baseline, context only", icon: "sun", value: data.baseline.hrv_rmssd_ms != null ? `${Math.round(data.baseline.hrv_rmssd_ms)} ms` : "Unavailable" },
+  ];
 
   const radius = 44;
   const circumference = 2 * Math.PI * radius;
@@ -195,12 +196,12 @@ export default function OverviewPage() {
         {/* 1. Readiness Today */}
         <section
           className="brand-glow relative flex flex-col justify-between overflow-hidden rounded-[24px] p-6 text-white"
-          aria-label="Readiness today"
+          aria-label="Demo readiness score"
         >
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-2.5">
               <p className="text-[13px] font-medium text-white/85">
-                Readiness today
+                Demo readiness score
               </p>
               <GateBadge gate={data.readiness_gate} tone="white" />
               <p className="max-w-[180px] text-xs leading-relaxed text-white/90">
@@ -243,7 +244,7 @@ export default function OverviewPage() {
           </div>
 
           <p className="mt-4 text-[11px] font-medium text-white/70">
-            GO from {data.thresholds.go} · CAUTION from{" "}
+            Rule-based decision support · GO from {data.thresholds.go} · CAUTION from{" "}
             {data.thresholds.caution}
           </p>
         </section>
@@ -270,7 +271,7 @@ export default function OverviewPage() {
             </p>
             <p className="mt-1.5 text-xs leading-relaxed text-on-accent/80">
               {data.checkin_done
-                ? "Your reaction & symptom answers are included in today's score."
+                ? "Your reaction and mood answers adjust today's demo score."
                 : "About 4 minutes: reaction test first, then 3 questions."}
             </p>
           </div>
@@ -339,73 +340,56 @@ export default function OverviewPage() {
 
       {/* Middle Row */}
       <div className="grid gap-5 lg:grid-cols-2">
-        {/* 4. Why This Status */}
-        <section className={CARD} aria-label="Why this status">
+        <section className={CARD} aria-label="Relevant health indicators">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-ink">
-              Why this status
+              Relevant health indicators
             </h2>
             <span className="rounded-full bg-soft px-3 py-1 text-xs font-medium text-ink-muted">
-              Model confidence{" "}
-              {Math.round(
-                data.prediction.cognitive_stress.confidence * 100,
-              )}
-              %
+              Synthetic data
             </span>
           </div>
 
-          <ul className="mt-5 space-y-4">
-            {features.map((f) => {
-              const pct = Math.round((f.impact / total) * 100);
-              const meta = FEATURE_META[f.name] ?? {
-                label: f.name,
-                icon: "info-circle" as IconName,
-                sub: "",
-              };
-              const barColor =
-                pct >= 35
-                  ? "bg-hold"
-                  : pct >= 15
-                    ? "bg-caution"
-                    : "bg-[#f59e0b]";
-              const textColor = pct >= 35 ? "text-hold" : "text-caution";
+          <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl bg-soft px-4 py-3">
+            <div>
+              <p className="text-[13px] font-semibold text-ink">Next-day fatigue risk</p>
+              <p className="text-[11px] text-ink-muted">
+                {fatigueOk
+                  ? `${fatigueNote} · score, not a probability`
+                  : fatigueNote}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-lg font-bold text-ink">
+                {fatigueOk ? `${fatigue!.fatigue_risk_score!.toFixed(2)} / 1` : "Unavailable"}
+              </p>
+              {fatigueOk && fatigue!.predicted_elevated_fatigue != null && (
+                <p className={`text-[11px] font-semibold ${fatigue!.predicted_elevated_fatigue ? "text-hold" : "text-ink-secondary"}`}>
+                  {fatigue!.predicted_elevated_fatigue ? "Elevated fatigue risk" : "Below model threshold"}
+                </p>
+              )}
+            </div>
+          </div>
 
-              return (
-                <li key={f.name} className="flex items-center gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-soft text-brand">
-                    <Icon name={meta.icon} />
-                  </span>
-
-                  <div className="min-w-[130px]">
-                    <p className="text-[13px] font-semibold leading-tight text-ink">
-                      {meta.label}
-                    </p>
-                    {meta.sub && (
-                      <p className="text-[11px] text-ink-muted">{meta.sub}</p>
-                    )}
-                  </div>
-
-                  <div className="h-2 flex-1 rounded-full bg-slate-100">
-                    <div
-                      className={`h-2 rounded-full ${barColor}`}
-                      style={{ width: `${Math.min(100, pct * 2)}%` }}
-                    />
-                  </div>
-
-                  <span
-                    className={`w-10 text-right text-xs font-bold ${textColor}`}
-                  >
-                    {pct}%
-                  </span>
-                </li>
-              );
-            })}
+          <ul className="mt-4 space-y-4">
+            {indicators.map((f) => (
+              <li key={f.label} className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-soft text-brand">
+                  <Icon name={f.icon} />
+                </span>
+                <div className="flex-1">
+                  <p className="text-[13px] font-semibold leading-tight text-ink">{f.label}</p>
+                  <p className="text-[11px] text-ink-muted">{f.sub}</p>
+                </div>
+                <span className="text-sm font-bold text-ink">{f.value}</span>
+              </li>
+            ))}
           </ul>
 
           <p className="mt-5 flex items-center gap-1.5 text-xs text-ink-muted">
             <Icon name="info-circle" />
             <span>
-              Share of the risk score from each factor, explained by the model.
+              Research prototype using synthetic mission data; not medical or flight-readiness clearance.
             </span>
           </p>
         </section>
@@ -422,7 +406,7 @@ export default function OverviewPage() {
                 1 block = 1 hour
               </span>
               <span className="rounded-full bg-soft px-2.5 py-0.5 font-semibold text-brand">
-                Recommended {recHours} h
+                Demo target {recHours} h
               </span>
             </div>
           </div>
