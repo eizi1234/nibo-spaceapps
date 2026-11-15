@@ -1,3 +1,5 @@
+export type Scenario = "normal" | "sleep_deprived" | "chaotic_schedule";
+
 export type ReadinessGate = "GO" | "CAUTION" | "HOLD";
 
 export interface WearableFeatures {
