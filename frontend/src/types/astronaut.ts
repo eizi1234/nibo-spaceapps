@@ -27,6 +27,7 @@ export interface CognitiveRiskPrediction {
 }
 
 export interface CircadianPrediction {
+  phase_shift_hours: number;
   predicted_sleep_hours: number;
   circadian_misalignment_hours: number;
   optimal_sleep_window: string;

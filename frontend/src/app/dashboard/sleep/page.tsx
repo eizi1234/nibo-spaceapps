@@ -74,6 +74,10 @@ export default function SleepCircadianPage() {
   }
 
   const circ = overview.prediction.circadian;
+  const shiftHours = Math.abs(circ.phase_shift_hours);
+  const shiftDirection =
+    circ.phase_shift_hours > 0 ? "late" : circ.phase_shift_hours < 0 ? "early" : "shifted";
+  const shiftDescription = circ.phase_shift_hours > 0 ? "delayed" : "advanced";
   const lastNight = sleepDays[sleepDays.length - 1];
   const avgSleep =
     sleepDays.length > 0
@@ -93,12 +97,12 @@ export default function SleepCircadianPage() {
         <section className="rounded-3xl bg-[#1d4fc4] p-5 text-white shadow-sm">
           <p className="text-sm text-white/80">Body clock shift</p>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-5xl font-bold">{circ.circadian_misalignment_hours.toFixed(1)}</span>
-            <span className="text-sm text-white/75">hours late</span>
+            <span className="text-5xl font-bold">{shiftHours.toFixed(1)}</span>
+            <span className="text-sm text-white/75">hours {shiftDirection}</span>
           </div>
           <p className="mt-3 text-xs text-white/80">
-            {circ.circadian_misalignment_hours >= 1
-              ? "Your internal clock is delayed compared to station schedule."
+            {shiftHours >= 1
+              ? `Your internal clock is ${shiftDescription} compared to station schedule.`
               : "Your circadian phase is well aligned with station time."}
           </p>
         </section>
