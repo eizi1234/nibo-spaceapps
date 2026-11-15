@@ -1,0 +1,9 @@
+scenario,task,shared_grid,core_days,candidate_rows,purged,final_rows,participants,positive,negative
+primary,fatigue,2432,1867,1468,19,1449,16,475.0,974.0
+primary,sleep,2432,1867,1704,22,1682,15,,
+offset_plus1,fatigue,2432,1867,1465,19,1446,16,473.0,973.0
+offset_plus1,sleep,2432,1867,1704,22,1682,15,,
+offset_plus2,fatigue,2432,1867,1459,19,1440,16,469.0,971.0
+offset_plus2,sleep,2432,1867,1704,22,1682,15,,
+wellness_lag2,fatigue,2432,1867,1468,19,1449,16,475.0,974.0
+wellness_lag2,sleep,2432,1867,1704,22,1682,15,,
