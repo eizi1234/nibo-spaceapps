@@ -1,7 +1,10 @@
 // Pembungkus pemanggil API backend + penyimpanan token login.
 import type {
-  CheckInCreate, CheckInResult, LoginResponse, OverviewResponse, RestRequest, RestRequestCreate, UserPublic,
+  BodyClockPoint, CheckInCreate, CheckInResult, LoginResponse, OverviewResponse,
+  RestRequest, RestRequestCreate, SleepDay, UserPublic,
 } from "@/types/crew";
+
+
 import type { Scenario } from "@/types/astronaut";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -71,4 +74,11 @@ export const api = {
   submitCheckin: (body: CheckInCreate, ctx: Ctx) => request<CheckInResult>("/checkin", post(body), { ...ctx }),
   createRestRequest: (body: RestRequestCreate, ctx: Ctx) =>
     request<RestRequest>("/rest-requests", post(body), { ...ctx }),
+  sleepHistory: (userId: string, ctx: Ctx, days = 7) =>
+    request<SleepDay[]>(`/users/${userId}/sleep-history`, {}, { ...ctx, days }),
+  bodyClock: (userId: string, ctx: Ctx, days = 14) =>
+    request<BodyClockPoint[]>(`/users/${userId}/body-clock`, {}, { ...ctx, days }),
+  applyLightPlan: (day: number) =>
+    request<{ ok: boolean; applied: boolean; day: number }>("/ready-to-sleep/light-plan/apply", post({}), { day }),
 };
+
