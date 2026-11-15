@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import Avatar from "@/components/Avatar";
 import Icon from "@/components/Icon";
+import Logo from "@/components/Logo";
 import type { IconName } from "@/components/Icon";
 import { api, ApiError, tokenStore } from "@/lib/api";
 import { DashboardContext } from "@/lib/dashboard-context";
@@ -23,7 +24,7 @@ const MISSION_DAYS = 180;
 const NAV: { href: string; label: string; icon: IconName; roles: UserPublic["role"][] }[] = [
   { href: "/dashboard", label: "Overview", icon: "overview", roles: ["crew", "commander"] },
   { href: "/dashboard/checkin", label: "Daily check-in", icon: "checkin", roles: ["crew", "commander"] },
-  { href: "/dashboard/sleep", label: "Sleep & circadian", icon: "moon", roles: ["crew", "commander"] },
+  { href: "/dashboard/sleep", label: "Sleep & schedule", icon: "moon", roles: ["crew", "commander"] },
   { href: "/dashboard/ready-to-sleep", label: "Ready to Sleep", icon: "clock", roles: ["crew"] },
   { href: "/dashboard/crew-mission", label: "Crew Mission", icon: "people", roles: ["commander"] },
   { href: "/dashboard/sleep-management", label: "Sleep Management", icon: "sliders", roles: ["commander"] },
@@ -73,11 +74,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="min-h-screen bg-gradient-to-b from-[#c9dafb] to-[#f3f7fe] p-3 md:p-6">
         <div className="mx-auto flex max-w-[1440px] flex-col gap-6 md:flex-row">
           <aside className="flex shrink-0 flex-col gap-1 overflow-hidden rounded-xl bg-gradient-to-b from-[#123a82] to-[#061e4a] px-4 py-[22px] text-white shadow-[0_4px_12px_0_rgba(10,43,115,0.1)] md:sticky md:top-6 md:h-[calc(100vh-3rem)] md:w-[232px]">
-            <div className="pl-2">
-              <span
-                aria-label="NIBO"
-                className="block size-11 rounded-full border-[1.5px] border-dashed border-white/35 bg-white/[0.06]"
-              />
+            <div className="flex h-11 items-end pl-2">
+              <Logo />
             </div>
             <div className="h-[26px]" />
             <p className="pb-2 pl-4 text-[11px] font-semibold leading-[1.3] tracking-[0.22px]">MENU</p>

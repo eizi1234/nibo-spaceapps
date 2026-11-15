@@ -219,7 +219,7 @@ export default function SleepManagementPage() {
                     <>
                       <span>Sleep {m.sleep_hours?.toFixed(1) ?? "-"} h</span>
                       <span className="text-ink-muted">·</span>
-                      <span>Clock {formatClock(m.clock_shift_hours)}</span>
+                      <span>Timing {formatClock(m.clock_shift_hours)}</span>
                     </>
                   ) : (
                     <span>Shares status only</span>
@@ -241,7 +241,7 @@ export default function SleepManagementPage() {
                 Try a schedule change for {who}
               </h2>
               <p className="text-xs font-medium leading-[1.4] text-ink-muted">
-                Move the sliders and the model predicts {who}&apos;s readiness again.
+                Move the sliders to compare scenarios. Not a proven treatment effect.
               </p>
 
               <SliderRow
@@ -318,9 +318,9 @@ export default function SleepManagementPage() {
             <section className={`${CARD} flex flex-col gap-4 p-6`} aria-labelledby="effect-heading">
               <div className="flex flex-col gap-0.5">
                 <h2 id="effect-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
-                  Effect on {who}&apos;s readiness
+                  Scenario comparison for {who}
                 </h2>
-                <p className="text-xs font-medium leading-[1.4] text-ink-muted">Same model as the Overview score</p>
+                <p className="text-xs font-medium leading-[1.4] text-ink-muted">Uses the AI sleep and fatigue forecasts</p>
               </div>
               {result ? (
                 <div className="flex flex-col items-stretch gap-3.5 sm:flex-row sm:items-center">
@@ -338,7 +338,7 @@ export default function SleepManagementPage() {
             <section className={`${CARD} flex flex-col gap-3 p-6`} aria-labelledby="clock-heading">
               <div className="flex flex-wrap items-center gap-3.5">
                 <h2 id="clock-heading" className="text-base font-semibold leading-[1.3] tracking-[-0.08px] text-ink">
-                  Body clock shift, next 5 days
+                  Sleep schedule alignment, next 5 days
                 </h2>
                 <span className="flex-1" />
                 <span className="flex items-center gap-1.5 text-xs font-medium leading-[1.4] text-ink-secondary">
@@ -352,8 +352,8 @@ export default function SleepManagementPage() {
               <p className="flex items-center gap-2 text-xs font-medium leading-[1.4] text-ink-muted">
                 <Icon name="info-circle" />
                 <span>
-                  {result ? `${clockRateText(result)} ` : ""}Prediction from a model trained on Earth data, run on
-                  synthetic mission data.
+                  Scenario comparison, not a circadian simulation. Model trained on Earth wearable data (PMData), run
+                  on synthetic mission data.
                 </span>
               </p>
             </section>
@@ -434,13 +434,6 @@ export default function SleepManagementPage() {
       )}
     </div>
   );
-}
-
-function clockRateText(result: SleepPlanResult) {
-  const pts = result.clock_projection;
-  if (pts.length < 2) return "";
-  const perDay = Math.round(Math.abs((pts[1].with_change - pts[0].with_change) * 60));
-  return perDay > 0 ? `Bedtime moves ${perDay} min a day.` : "";
 }
 
 function SliderRow({
@@ -526,13 +519,13 @@ function OutcomeCard({ label, outcome, accent = false }: { label: string; outcom
       <dl className="relative flex flex-col gap-2.5">
         <div className="flex items-center gap-2">
           <Icon name="sun" className={accent ? "text-on-accent" : "text-brand"} />
-          <dt className={`text-[13px] leading-[1.5] ${text}`}>Body clock</dt>
+          <dt className={`text-[13px] leading-[1.5] ${text}`}>Sleep timing</dt>
           <span className="flex-1" />
           <dd className={`text-[13px] font-semibold leading-[1.3] ${value}`}>{formatShift(outcome.body_clock_hours)}</dd>
         </div>
         <div className="flex items-center gap-2">
           <Icon name="moon-sm" className={accent ? "text-on-accent" : "text-brand"} />
-          <dt className={`text-[13px] leading-[1.5] ${text}`}>Predicted sleep</dt>
+          <dt className={`text-[13px] leading-[1.5] ${text}`}>Predicted sleep (AI)</dt>
           <span className="flex-1" />
           <dd className={`text-[13px] font-semibold leading-[1.3] ${value}`}>
             {outcome.predicted_sleep_hours.toFixed(1)} h
@@ -597,7 +590,7 @@ function ClockChart({ points }: { points: SleepPlanResult["clock_projection"] })
       viewBox={`0 0 ${W} ${H}`}
       className="h-auto w-full max-w-[560px] font-sans"
       role="img"
-      aria-label={`With the change, body clock shift goes from ${first} to ${last} hours over the next 5 days`}
+      aria-label={`Scenario: sleep timing shift goes from ${first} to ${last} hours over the next 5 days`}
     >
       <rect x={left} y={y(0.5)} width={W - left - right} height={zeroY - y(0.5)} rx={8} fill="#ddf4e9" />
       <text x={left + 8} y={y(0.5) + 16} fontSize={12} fontWeight={500} fill="#12935f">
