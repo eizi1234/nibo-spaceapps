@@ -1,0 +1,4 @@
+{
+  "threshold": 0.49,
+  "score_scale": "risk_score"
+}

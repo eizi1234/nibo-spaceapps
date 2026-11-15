@@ -1,0 +1,36 @@
+# Implementation-only default. Override actual paths; no hard-coded Kaggle slug.
+mode: validate
+data_dir: data/processed
+schema_path: research/feature_schema.csv
+reports_root: reports
+output_root: /kaggle/working/cognitive_outputs
+scenario_id: primary
+seed: 42
+requested_device: auto
+allow_cpu_fallback: true
+fast_mode: false
+trials: 30
+top_k: 3
+cpu_threads: 2
+models: [logistic, random_forest, lightgbm, xgboost, catboost]
+feature_experiments: [E0, E1, E2, E3, E4, E5]
+run_baselines: true
+run_grid: true
+run_tuning: true
+run_supplementary: false
+run_sensitivity_validation: false
+run_grouped_outer: false
+run_final_test: false
+run_sensitivity_test: false
+run_export: false
+gpu_smoke: false
+approval_record: null
+final_config: null
+personal_history_days: 28
+personal_history_min_days: 14
+calibration_min_samples: 50
+calibration_min_class: 5
+calibration_max_ece: 0.10
+bootstrap_replicates: 1000
+outer_inner_folds: 3
+nested_trials: 5

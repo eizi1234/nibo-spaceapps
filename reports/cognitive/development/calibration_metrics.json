@@ -1,0 +1,23 @@
+{
+  "method": "native",
+  "slope": null,
+  "intercept": null,
+  "probability_verified": false,
+  "threshold": 0.49,
+  "evidence": {
+    "calibration_fit": "training-only forward OOF",
+    "oof_n": 742,
+    "adequacy_n": 148,
+    "threshold_n": 139,
+    "partition_overlap": 0,
+    "model_selection_used_full_validation": true,
+    "limitation": "Adequacy and threshold are development estimates after validation model selection; not independent final evidence",
+    "probability_verified": false,
+    "adequacy_criteria_human_approved": false,
+    "threshold_selection": {
+      "status": "selected",
+      "criterion": "validation-only macro F1",
+      "tie_break": "closest to 0.5, then smaller threshold"
+    }
+  }
+}
