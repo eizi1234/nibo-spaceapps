@@ -1,9 +1,5 @@
 // Pembungkus pemanggil API backend + penyimpanan token login.
 import type {
-<<<<<<< HEAD
-  BodyClockPoint, CheckInCreate, CheckInResult, CrewResponse, LoginResponse, OverviewResponse,
-  RestRequest, RestRequestCreate, SleepDay, SleepPlanInput, SleepPlanResult, UserPublic,
-=======
   BodyClockPoint,
   CheckInCreate,
   CheckInResult,
@@ -13,7 +9,9 @@ import type {
   RestRequestCreate,
   SleepDay,
   UserPublic,
->>>>>>> f155cda5894b54ca4ec5d1db6c53ffbf4ab44cd3
+  CrewResponse,
+  SleepPlanInput,
+  SleepPlanResult,
 } from "@/types/crew";
 import type { Scenario } from "@/types/astronaut";
 
@@ -63,18 +61,6 @@ export interface TaskSwapSuggestion {
   applied?: boolean;
 }
 
-export interface SleepPlanSimulation {
-  shift_minutes: number;
-  nap_minutes: number;
-  crew: {
-    id: string;
-    name: string;
-    current_score: number;
-    projected_score: number;
-    current_gate: "GO" | "CAUTION" | "HOLD";
-    projected_gate: "GO" | "CAUTION" | "HOLD";
-  }[];
-}
 
 export class ApiError extends Error {
   status: number;
@@ -154,15 +140,6 @@ export const api = {
   updateAudio: (body: { audio_track?: string; audio_playing?: boolean }, day: number) =>
     request<ReadyToSleepState>("/ready-to-sleep/audio", patch(body), { day }),
   applyLightPlan: (day: number) =>
-<<<<<<< HEAD
-    request<{ ok: boolean; applied: boolean; day: number }>("/ready-to-sleep/light-plan/apply", post({}), { day }),
-  crew: (ctx: Ctx) => request<CrewResponse>("/crew", {}, { ...ctx }),
-  simulateSleepPlan: (body: SleepPlanInput, ctx: Ctx) =>
-    request<SleepPlanResult>("/sleep-plan/simulate", post(body), { ...ctx }),
-  applySleepPlan: (body: SleepPlanInput, ctx: Ctx) =>
-    request<SleepPlanResult>("/sleep-plan/apply", post(body), { ...ctx }),
-};
-=======
     request<{ ok: boolean; applied: boolean; day: number }>(
       "/ready-to-sleep/light-plan/apply",
       post({}),
@@ -187,27 +164,11 @@ export const api = {
       }),
       { ...ctx }
     ),
->>>>>>> f155cda5894b54ca4ec5d1db6c53ffbf4ab44cd3
 
   // Sleep Management (Commander)
-  simulateSleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
-    request<SleepPlanSimulation>(
-      "/sleep-plan/simulate",
-      post({
-        bedtime_shift_minutes: body.shift_minutes,
-        shift_minutes: body.shift_minutes,
-        nap_minutes: body.nap_minutes,
-      }),
-      { ...ctx }
-    ),
-  applySleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
-    request<{ ok: boolean }>(
-      "/sleep-plan/apply",
-      post({
-        bedtime_shift_minutes: body.shift_minutes,
-        shift_minutes: body.shift_minutes,
-        nap_minutes: body.nap_minutes,
-      }),
-      { ...ctx }
-    ),
+  crew: (ctx: Ctx) => request<CrewResponse>("/crew", {}, { ...ctx }),
+  simulateSleepPlan: (body: SleepPlanInput, ctx: Ctx) =>
+    request<SleepPlanResult>("/sleep-plan/simulate", post(body), { ...ctx }),
+  applySleepPlan: (body: SleepPlanInput, ctx: Ctx) =>
+    request<SleepPlanResult>("/sleep-plan/apply", post(body), { ...ctx }),
 };

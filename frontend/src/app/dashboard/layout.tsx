@@ -18,23 +18,15 @@ const SCENARIOS: { value: Scenario; label: string }[] = [
   { value: "chaotic_schedule", label: "Chaotic schedule" },
 ];
 
-<<<<<<< HEAD
 const MISSION_DAYS = 180;
 
 const NAV: { href: string; label: string; icon: IconName; roles: UserPublic["role"][] }[] = [
   { href: "/dashboard", label: "Overview", icon: "overview", roles: ["crew", "commander"] },
   { href: "/dashboard/checkin", label: "Daily check-in", icon: "checkin", roles: ["crew", "commander"] },
   { href: "/dashboard/sleep", label: "Sleep & circadian", icon: "moon", roles: ["crew", "commander"] },
+  { href: "/dashboard/ready-to-sleep", label: "Ready to Sleep", icon: "clock", roles: ["crew"] },
+  { href: "/dashboard/crew-mission", label: "Crew Mission", icon: "people", roles: ["commander"] },
   { href: "/dashboard/sleep-management", label: "Sleep Management", icon: "sliders", roles: ["commander"] },
-=======
-const NAV: { href: string; label: string; roles: UserPublic["role"][] }[] = [
-  { href: "/dashboard", label: "Overview", roles: ["crew", "commander"] },
-  { href: "/dashboard/checkin", label: "Daily check-in", roles: ["crew", "commander"] },
-  { href: "/dashboard/sleep", label: "Sleep & circadian", roles: ["crew", "commander"] },
-  { href: "/dashboard/ready-to-sleep", label: "Ready to Sleep", roles: ["crew"] },
-  { href: "/dashboard/crew-mission", label: "Crew Mission", roles: ["commander"] },
-  { href: "/dashboard/sleep-management", label: "Sleep Management", roles: ["commander"] },
->>>>>>> f155cda5894b54ca4ec5d1db6c53ffbf4ab44cd3
 ];
 
 const PILL =
