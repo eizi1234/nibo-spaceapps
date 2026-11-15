@@ -1,10 +1,15 @@
 // Pembungkus pemanggil API backend + penyimpanan token login.
 import type {
-  BodyClockPoint, CheckInCreate, CheckInResult, LoginResponse, OverviewResponse,
-  RestRequest, RestRequestCreate, SleepDay, UserPublic,
+  BodyClockPoint,
+  CheckInCreate,
+  CheckInResult,
+  LoginResponse,
+  OverviewResponse,
+  RestRequest,
+  RestRequestCreate,
+  SleepDay,
+  UserPublic,
 } from "@/types/crew";
-
-
 import type { Scenario } from "@/types/astronaut";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -26,21 +31,6 @@ export interface ReadyToSleepState {
   audio_track: "brown_noise" | "deep_space" | "off";
   audio_playing: boolean;
   light_plan_applied: boolean;
-}
-
-const patch = (body: unknown): RequestInit => ({ method: "PATCH", body: JSON.stringify(body) });
-
-export interface SleepPlanSimulation {
-  shift_minutes: number;
-  nap_minutes: number;
-  crew: {
-    id: string;
-    name: string;
-    current_score: number;
-    projected_score: number;
-    current_gate: "GO" | "CAUTION" | "HOLD";
-    projected_gate: "GO" | "CAUTION" | "HOLD";
-  }[];
 }
 
 export interface CrewMemberSummary {
@@ -66,6 +56,19 @@ export interface TaskSwapSuggestion {
   to_user_name: string;
   reason: string;
   applied?: boolean;
+}
+
+export interface SleepPlanSimulation {
+  shift_minutes: number;
+  nap_minutes: number;
+  crew: {
+    id: string;
+    name: string;
+    current_score: number;
+    projected_score: number;
+    current_gate: "GO" | "CAUTION" | "HOLD";
+    projected_gate: "GO" | "CAUTION" | "HOLD";
+  }[];
 }
 
 export class ApiError extends Error {
@@ -116,19 +119,29 @@ export interface Ctx {
 }
 
 const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+const patch = (body: unknown): RequestInit => ({ method: "PATCH", body: JSON.stringify(body) });
 
 export const api = {
-  login: (username: string, pin: string) => request<LoginResponse>("/auth/login", post({ username, pin })),
+  // Auth
+  login: (username: string, pin: string) =>
+    request<LoginResponse>("/auth/login", post({ username, pin })),
   me: () => request<UserPublic>("/auth/me"),
+
+  // Overview & Daily Check-in
   overview: (ctx: Ctx) => request<OverviewResponse>("/overview", {}, { ...ctx }),
   checkinToday: (ctx: Ctx) => request<CheckInResult | null>("/checkin/today", {}, { ...ctx }),
-  submitCheckin: (body: CheckInCreate, ctx: Ctx) => request<CheckInResult>("/checkin", post(body), { ...ctx }),
+  submitCheckin: (body: CheckInCreate, ctx: Ctx) =>
+    request<CheckInResult>("/checkin", post(body), { ...ctx }),
   createRestRequest: (body: RestRequestCreate, ctx: Ctx) =>
     request<RestRequest>("/rest-requests", post(body), { ...ctx }),
+
+  // Sleep & Circadian
   sleepHistory: (userId: string, ctx: Ctx, days = 7) =>
     request<SleepDay[]>(`/users/${userId}/sleep-history`, {}, { ...ctx, days }),
   bodyClock: (userId: string, ctx: Ctx, days = 14) =>
     request<BodyClockPoint[]>(`/users/${userId}/body-clock`, {}, { ...ctx, days }),
+
+  // Ready to Sleep (Crew IoT)
   readyToSleep: (day: number) =>
     request<ReadyToSleepState>("/ready-to-sleep", {}, { day }),
   updateLamp: (body: { lamp_mode?: string; lamp_brightness?: number }, day: number) =>
@@ -136,7 +149,13 @@ export const api = {
   updateAudio: (body: { audio_track?: string; audio_playing?: boolean }, day: number) =>
     request<ReadyToSleepState>("/ready-to-sleep/audio", patch(body), { day }),
   applyLightPlan: (day: number) =>
-    request<{ ok: boolean; applied: boolean; day: number }>("/ready-to-sleep/light-plan/apply", post({}), { day }),
+    request<{ ok: boolean; applied: boolean; day: number }>(
+      "/ready-to-sleep/light-plan/apply",
+      post({}),
+      { day }
+    ),
+
+  // Crew Mission (Commander)
   crewRoster: (ctx: Ctx) =>
     request<CrewMemberSummary[]>("/crew", {}, { ...ctx }),
   crewSwaps: (ctx: Ctx) =>
@@ -146,10 +165,34 @@ export const api = {
   restRequests: (ctx: Ctx) =>
     request<RestRequest[]>("/rest-requests", {}, { ...ctx }),
   decideRestRequest: (rid: string, decision: "approved" | "declined", ctx: Ctx) =>
-    request<RestRequest>(`/rest-requests/${rid}/decision`, post({ decision }), { ...ctx }),
-  simulateSleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
-    request<SleepPlanSimulation>("/sleep-plan/simulate", post(body), { ...ctx }),
-  applySleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
-    request<{ ok: boolean }>("/sleep-plan/apply", post(body), { ...ctx }),
-};
+    request<RestRequest>(
+      `/rest-requests/${rid}/decision`,
+      post({
+        approved: decision === "approved",
+        status: decision,
+      }),
+      { ...ctx }
+    ),
 
+  // Sleep Management (Commander)
+  simulateSleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
+    request<SleepPlanSimulation>(
+      "/sleep-plan/simulate",
+      post({
+        bedtime_shift_minutes: body.shift_minutes,
+        shift_minutes: body.shift_minutes,
+        nap_minutes: body.nap_minutes,
+      }),
+      { ...ctx }
+    ),
+  applySleepPlan: (body: { shift_minutes: number; nap_minutes: number }, ctx: Ctx) =>
+    request<{ ok: boolean }>(
+      "/sleep-plan/apply",
+      post({
+        bedtime_shift_minutes: body.shift_minutes,
+        shift_minutes: body.shift_minutes,
+        nap_minutes: body.nap_minutes,
+      }),
+      { ...ctx }
+    ),
+};
