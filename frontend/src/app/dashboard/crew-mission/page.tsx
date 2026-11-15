@@ -12,10 +12,9 @@ import {
 } from "@/lib/api";
 import { useDashboard } from "@/lib/dashboard-context";
 import type { ReadinessGate } from "@/types/astronaut";
-import type { CrewMember, LocalRestRequest, RestRequest } from "@/types/crew";
+import type { CrewMember, RestRequest } from "@/types/crew";
 
 const CARD = "glass-card rounded-[24px] p-6";
-const SHARED_REST_KEY = "nibo_shared_rest_requests";
 
 const GATE_BAR_COLOR: Record<ReadinessGate, string> = {
   GO: "bg-[#12935f]",
@@ -70,18 +69,6 @@ function buildShiftForecast(member: CrewMember): ReadinessGate[] {
   });
 }
 
-function syncLocalRequestStatus(rid: string, status: "approved" | "declined") {
-  try {
-    const raw = window.localStorage.getItem(SHARED_REST_KEY);
-    if (!raw) return;
-    const parsed: LocalRestRequest[] = JSON.parse(raw);
-    const updated = parsed.map((item) => (item.id === rid ? { ...item, status } : item));
-    window.localStorage.setItem(SHARED_REST_KEY, JSON.stringify(updated));
-  } catch {
-    // ignore storage errors
-  }
-}
-
 type ModalContextState = {
   mode: "swap" | "rest";
   swap?: TaskSwapSuggestion;
@@ -132,22 +119,7 @@ export default function CrewMissionPage() {
         const list = Array.isArray(crewRes) ? crewRes : crewRes?.members ?? [];
         setMembers(list);
         setSwaps(Array.isArray(swapList) ? swapList : []);
-
-        // Gabungkan pengajuan dari API dengan pengajuan baru dari localStorage
-        const apiReqs = Array.isArray(reqList) ? reqList : [];
-        let localReqs: RestRequest[] = [];
-        try {
-          const raw = window.localStorage.getItem(SHARED_REST_KEY);
-          const parsed: LocalRestRequest[] = raw ? JSON.parse(raw) : [];
-          localReqs = parsed.filter((r) => r.day === undefined || r.day === day);
-        } catch {
-          // ignore
-        }
-        const mergedReqs = [
-          ...localReqs,
-          ...apiReqs.filter((a) => !localReqs.some((l) => l.id === a.id)),
-        ];
-        setRequests(mergedReqs);
+        setRequests(Array.isArray(reqList) ? reqList : []);
         setError(null);
       })
       .catch((e: unknown) => {
@@ -160,7 +132,7 @@ export default function CrewMissionPage() {
     return () => {
       cancelled = true;
     };
-  }, [scenario, day, user.id]);
+  }, [scenario, day]);
 
   useEffect(() => {
     if (!modal) return;
@@ -230,11 +202,9 @@ export default function CrewMissionPage() {
     if (modal.mode === "swap" && modal.swap) {
       setDismissedSwaps((prev) => ({ ...prev, [modal.swap!.id]: true }));
     } else if (modal.mode === "rest" && modal.request) {
-      const rid = modal.request.id;
-      setDecidedReqs((prev) => ({ ...prev, [rid]: "declined" }));
-      syncLocalRequestStatus(rid, "declined");
+      setDecidedReqs((prev) => ({ ...prev, [modal.request!.id]: "declined" }));
       try {
-        await api.decideRestRequest(rid, "declined", { scenario, day });
+        await api.decideRestRequest(modal.request.id, "declined", { scenario, day });
       } catch {
         // ignore
       }
@@ -250,10 +220,8 @@ export default function CrewMissionPage() {
         setAppliedSwaps((prev) => ({ ...prev, [modal.swap!.id]: true }));
         await api.applySwap(modal.swap.id, { scenario, day }).catch(() => {});
       } else if (modal.mode === "rest" && modal.request) {
-        const rid = modal.request.id;
-        setDecidedReqs((prev) => ({ ...prev, [rid]: "approved" }));
-        syncLocalRequestStatus(rid, "approved");
-        await api.decideRestRequest(rid, "approved", { scenario, day }).catch(() => {});
+        setDecidedReqs((prev) => ({ ...prev, [modal.request!.id]: "approved" }));
+        await api.decideRestRequest(modal.request.id, "approved", { scenario, day }).catch(() => {});
       }
     } finally {
       setModalSubmitting(false);
@@ -275,6 +243,7 @@ export default function CrewMissionPage() {
 
   const visibleSwaps = swaps.filter((s) => !dismissedSwaps[s.id]);
 
+  // Kandidat kru untuk modal pemilih tugas (diurutkan dari skor tertinggi)
   const sortedCandidates = modal
     ? [...members]
         .filter((m) => m.user.name !== modal.requesterName)
@@ -345,7 +314,7 @@ export default function CrewMissionPage() {
         </div>
       )}
 
-      {/* 4 Crew Member Cards */}
+      {/* 4 Crew Member Cards (Matching Figma) */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {members.map((m, idx) => {
           const isYou = m.user.id === user.id;
@@ -445,9 +414,9 @@ export default function CrewMissionPage() {
         })}
       </div>
 
-      {/* Bottom 2-Column Section */}
+      {/* Bottom 2-Column Section: Shift Forecast Matrix & Suggested Swaps / Requests */}
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_360px]">
-        {/* Left: Readiness by Shift + Crew Rest Requests */}
+        {/* Left: Readiness by Shift, Next 3 Days + Crew Rest Requests */}
         <div className="space-y-5">
           <section className={CARD} aria-label="Readiness by shift, next 3 days">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -515,23 +484,19 @@ export default function CrewMissionPage() {
             </p>
           </section>
 
-          {/* Crew Rest Requests Inbox (Synced with Check-In Modal) */}
-          <section className={CARD} aria-label="Crew rest requests">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-ink">Crew rest requests</h2>
-                <p className="text-xs text-ink-muted">Recovery &amp; schedule change submissions</p>
+          {/* Crew Rest Requests Inbox */}
+          {requests.length > 0 && (
+            <section className={CARD} aria-label="Crew rest requests">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-ink">Crew rest requests</h2>
+                  <p className="text-xs text-ink-muted">Recovery &amp; schedule change submissions</p>
+                </div>
+                <span className="rounded-full bg-soft px-3 py-1 text-xs font-bold text-brand">
+                  {requests.length}
+                </span>
               </div>
-              <span className="rounded-full bg-soft px-3 py-1 text-xs font-bold text-brand">
-                {requests.length}
-              </span>
-            </div>
 
-            {requests.length === 0 ? (
-              <p className="mt-4 rounded-2xl bg-[#f4f7fe] p-4 text-xs text-ink-muted">
-                No pending rest requests from the crew right now.
-              </p>
-            ) : (
               <div className="mt-4 space-y-3">
                 {requests.map((r) => {
                   const status: RestRequest["status"] = decidedReqs[r.id] ?? r.status;
@@ -572,7 +537,6 @@ export default function CrewMissionPage() {
                             type="button"
                             onClick={() => {
                               setDecidedReqs((prev) => ({ ...prev, [r.id]: "declined" }));
-                              syncLocalRequestStatus(r.id, "declined");
                               api.decideRestRequest(r.id, "declined", { scenario, day }).catch(() => {});
                             }}
                             className="rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-semibold text-ink hover:bg-slate-50"
@@ -585,8 +549,8 @@ export default function CrewMissionPage() {
                   );
                 })}
               </div>
-            )}
-          </section>
+            </section>
+          )}
         </div>
 
         {/* Right: Suggested Swaps */}
@@ -700,7 +664,7 @@ export default function CrewMissionPage() {
             onClick={(e) => e.stopPropagation()}
             className="flex max-h-[92vh] w-full max-w-[540px] flex-col gap-4 overflow-y-auto rounded-[28px] bg-white p-6 shadow-[0_24px_48px_-12px_rgba(10,43,115,0.35)]"
           >
-            {/* Top Header */}
+            {/* Top Header: Requester Info + Score */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <Avatar name={modal.requesterName} tone="soft" />
@@ -719,7 +683,7 @@ export default function CrewMissionPage() {
               </div>
             </div>
 
-            {/* Soft Coral Quote Box */}
+            {/* Soft Coral/Peach Quote Box */}
             <div className="rounded-2xl bg-[#fff1ee] p-4">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-bold text-hold">Not ready, asks for a short rest</span>
@@ -753,7 +717,7 @@ export default function CrewMissionPage() {
               </div>
             </div>
 
-            {/* Affected Task */}
+            {/* Affected Task Row */}
             <div className="flex items-center gap-3 px-1">
               <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-soft text-brand">
                 <Icon name="info-circle" />
@@ -766,7 +730,7 @@ export default function CrewMissionPage() {
               </div>
             </div>
 
-            {/* AI Suggests Banner + Rest Length Controls */}
+            {/* AI Suggests Banner + Rest Length Slider (Shown in Rest Review Mode) */}
             {modal.mode === "rest" && (
               <>
                 <div className="brand-glow rounded-2xl p-4 text-white">
@@ -790,6 +754,7 @@ export default function CrewMissionPage() {
                   </p>
                 </div>
 
+                {/* Rest Length Controls */}
                 <div className="space-y-2 px-1">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-ink">
@@ -841,7 +806,7 @@ export default function CrewMissionPage() {
               </>
             )}
 
-            {/* Crew Replacement Picker */}
+            {/* Crew Replacement Picker ("Who takes [Task]?") */}
             {modal.pickerExpanded ? (
               <div className="space-y-2.5 rounded-2xl border border-slate-100 bg-[#f8faff] p-4">
                 <div className="flex items-center justify-between text-xs">
@@ -914,6 +879,7 @@ export default function CrewMissionPage() {
                   Only crew trained for this task are listed. The AI ranks them by score, free time and workload.
                 </p>
 
+                {/* Bottom Selected Banner */}
                 {selectedMember && (
                   <div className="flex items-center justify-between gap-2 rounded-xl bg-[#eef4ff] px-3.5 py-2.5 text-xs">
                     <div className="flex items-center gap-2.5">
@@ -941,6 +907,7 @@ export default function CrewMissionPage() {
                 )}
               </div>
             ) : (
+              /* Collapsed Lime-Bordered Pick Summary (in Rest Review Mode) */
               selectedMember && (
                 <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-[#d4e137] bg-[#fcffe8] p-3.5 text-xs">
                   <div className="flex items-center gap-2.5">
@@ -968,7 +935,7 @@ export default function CrewMissionPage() {
               )
             )}
 
-            {/* Modal Footer */}
+            {/* Modal Footer Actions */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <span className="text-[11px] text-ink-muted">Mission Control is notified after you decide.</span>
               <div className="flex items-center gap-2.5">
