@@ -64,6 +64,7 @@ export interface RestRequest {
   created_at: string; decided_at: string | null; approved_minutes: number | null;
   replacement_user_id: string | null; suggestion: RestSuggestion | null;
 }
+export type LocalRestRequest = RestRequest & { day?: number };
 export interface Decision { decision: "approve" | "decline"; approved_minutes?: number; replacement_user_id?: string }
 
 export interface SleepPlanInput { user_id: string; bedtime_earlier_minutes: number; recovery_sleep_minutes: number }

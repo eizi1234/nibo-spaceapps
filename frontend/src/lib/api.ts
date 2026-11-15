@@ -135,7 +135,7 @@ export const api = {
   // Ready to Sleep (Crew IoT)
   readyToSleep: (day: number) =>
     request<ReadyToSleepState>("/ready-to-sleep", {}, { day }),
-  updateLamp: (body: { lamp_mode?: string; lamp_brightness?: number }, day: number) =>
+  updateLamp: (body: { mode?: "warm" | "night" | "off"; brightness_pct?: number }, day: number) =>
     request<ReadyToSleepState>("/ready-to-sleep/lamp", patch(body), { day }),
   updateAudio: (body: { audio_track?: string; audio_playing?: boolean }, day: number) =>
     request<ReadyToSleepState>("/ready-to-sleep/audio", patch(body), { day }),

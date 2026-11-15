@@ -63,10 +63,17 @@ def apply_plan(f: WearableFeatures, earlier: int, recovery: int) -> WearableFeat
     return WearableFeatures(**data)
 
 
-def features_for(user_id: str, scenario: str, day: int) -> WearableFeatures:
+def plan_for(user_id: str, day: int) -> Tuple[int, int]:
+    """Rencana tidur dari commander yang tersimpan: (menit tidur lebih awal, menit recovery)."""
+    p = store.STATE["plans"].get((user_id, day))
+    return (p["bedtime_earlier_minutes"], p["recovery_sleep_minutes"]) if p else (0, 0)
+
+
+def features_for(user_id: str, scenario: str, day: int, plan: Optional[Tuple[int, int]] = None) -> WearableFeatures:
+    """Fitur setelah rencana diterapkan. plan=None memakai rencana yang tersimpan."""
     f = simulator.generate_for_user(user_id, scenario, day)
-    plan = store.STATE["plans"].get((user_id, day))
-    return apply_plan(f, plan["bedtime_earlier_minutes"], plan["recovery_sleep_minutes"]) if plan else f
+    earlier, recovery = plan if plan is not None else plan_for(user_id, day)
+    return apply_plan(f, earlier, recovery) if (earlier or recovery) else f
 
 
 def predict(user_id: str, f: WearableFeatures, scenario: str) -> PredictionResponse:
@@ -111,9 +118,17 @@ def apply_checkin(pred: PredictionResponse, checkin: Optional[dict]) -> Tuple[fl
     return score, adj, unreliable
 
 
-def evaluate(user_id: str, scenario: str, day: int, f: Optional[WearableFeatures] = None) -> dict:
-    f = f or features_for(user_id, scenario, day)
+def evaluate(user_id: str, scenario: str, day: int, f: Optional[WearableFeatures] = None,
+             plan: Optional[Tuple[int, int]] = None) -> dict:
+    earlier, recovery = plan if plan is not None else plan_for(user_id, day)
+    raw = simulator.generate_for_user(user_id, scenario, day)
+    f = f or (apply_plan(raw, earlier, recovery) if (earlier or recovery) else raw)
     pred = predict(user_id, f, scenario)
+    # Tidur malam ini: recovery sleep adalah tambahan tidur nyata, jadi dihitung dari sleep debt ASLI
+    # lalu ditambah recovery (bukan dihitung dua kali lewat berkurangnya debt).
+    circ = ml_service.predict_circadian(f.model_copy(update={"sleep_debt_hours": raw.sleep_debt_hours}))
+    pred.circadian = circ.model_copy(
+        update={"predicted_sleep_hours": round(min(9.0, circ.predicted_sleep_hours + recovery / 60), 1)})
     checkin = store.STATE["checkins"].get((user_id, day))
     score, adj, unreliable = apply_checkin(pred, checkin)
     return dict(f=f, pred=pred, checkin=checkin, score=score, gate=rules.readiness_gate(score),
@@ -278,7 +293,7 @@ def build_overview(user: dict, scenario: str, day: int) -> OverviewResponse:
     nxt = next((t for t in upcoming if t.needs_score >= 50), upcoming[0] if upcoming else None)
     return OverviewResponse(
         user=public_user(user), day=day, scenario=scenario, checkin_done=ev["checkin"] is not None,
-        readiness_score=ev["score"], readiness_gate=ev["gate"], thresholds=THRESHOLDS, prediction=ev["pred"],
+        readiness_score=ev["score"], readiness_gate=ev["gate"], thresholds=THRESHOLDS, prediction=ev["pred"], sleep_debt_hours=ev["f"].sleep_debt_hours,
         adjustments=ev["adjustments"], tasks=tasks, next_critical_task=nxt,
         sleep_7d=[SleepDay(**r) for r in simulator.sleep_history(user["id"], scenario, day)],
         baseline=Baseline(**store.BASELINE), recommended_actions=ev["pred"].recommended_actions)
@@ -308,14 +323,14 @@ def crew_members(viewer: dict, scenario: str, day: int) -> List[CrewMember]:
 def _outcome(ev: dict) -> PlanOutcome:
     f = ev["f"]
     return PlanOutcome(score=ev["score"], gate=ev["gate"], body_clock_hours=round(f.schedule_shift_minutes / 60, 1),
-                       predicted_sleep_hours=ml_service.predict_circadian(f).predicted_sleep_hours,
+                       predicted_sleep_hours=ev["pred"].circadian.predicted_sleep_hours,
                        schedule_shift_minutes=f.schedule_shift_minutes, sleep_debt_hours=f.sleep_debt_hours)
 
 
 def simulate_plan(target_id: str, earlier: int, recovery: int, scenario: str, day: int) -> SleepPlanResult:
-    f0 = features_for(target_id, scenario, day)
-    ev0 = evaluate(target_id, scenario, day, f=f0)
-    ev1 = evaluate(target_id, scenario, day, f=apply_plan(f0, earlier, recovery))
+    # Rencana bersifat absolut terhadap kondisi dasar: bandingkan rencana tersimpan vs rencana baru.
+    ev0 = evaluate(target_id, scenario, day)
+    ev1 = evaluate(target_id, scenario, day, plan=(earlier, recovery))
     changes = [TaskChange(task_id=t["id"], name=t["name"], needs_score=t["needs"],
                           before=task_gate(ev0["score"], t["needs"]), after=task_gate(ev1["score"], t["needs"]))
                for t in store.STATE["tasks"] if t["assigned_to"] == target_id]
@@ -326,20 +341,6 @@ def simulate_plan(target_id: str, earlier: int, recovery: int, scenario: str, da
         user_id=target_id, current=_outcome(ev0), with_change=_outcome(ev1), task_changes=changes,
         clock_projection=proj, bedtime_before="23:30", bedtime_after=simulator.hhmm(23 * 60 + 30 - earlier),
         wake_before="06:00", wake_after=simulator.hhmm(6 * 60 + recovery))
-
-LAMP_KELVIN = {"warm": 2700, "night": 2000, "off": 0}
-
-DEFAULT_PLAYLISTS = [
-    dict(id="deep_space_drift", title="Deep Space Drift",
-         subtitle="Slow ambient layers to help you unwind",
-         genre="Ambient", tracks_count=12, duration_label="1 hr 20 min", recommended=True),
-    dict(id="rain_on_window", title="Rain on the Window",
-         subtitle="Gentle rain and distant thunder",
-         genre="Nature sounds", tracks_count=8, duration_label="45 min", recommended=False),
-    dict(id="soft_piano_nights", title="Soft Piano Nights",
-         subtitle="Minimalist acoustic piano melodies",
-         genre="Instrumental", tracks_count=10, duration_label="1 hr", recommended=False),
-]
 
 
 def _default_light_plan(user_id: str, scenario: str, day: int) -> list[dict]:
