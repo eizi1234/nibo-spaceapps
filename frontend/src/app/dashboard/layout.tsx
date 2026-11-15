@@ -20,6 +20,8 @@ const NAV: { href: string; label: string; roles: UserPublic["role"][] }[] = [
   { href: "/dashboard/checkin", label: "Daily check-in", roles: ["crew", "commander"] },
   { href: "/dashboard/sleep", label: "Sleep & circadian", roles: ["crew", "commander"] },
   { href: "/dashboard/ready-to-sleep", label: "Ready to Sleep", roles: ["crew"] },
+  { href: "/dashboard/crew-mission", label: "Crew Mission", roles: ["commander"] },
+  { href: "/dashboard/sleep-management", label: "Sleep Management", roles: ["commander"] },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
