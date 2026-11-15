@@ -1,0 +1,18 @@
+CPU INFERENCE SMOKE TEST PASSED
+{
+  "predicted_sleep_tst_minutes": 431.65148653642973,
+  "predicted_sleep_midpoint_minutes": null,
+  "sleep_tst_status": "ok",
+  "sleep_midpoint_status": "unavailable",
+  "model_version": "sleep-tst-v1",
+  "prediction_cutoff": "2020-04-02T20:00:00",
+  "prediction_horizon": "next_main_sleep",
+  "input_coverage": {
+    "selected_features": 68,
+    "available_n": 32,
+    "missing_n": 36
+  },
+  "uncertainty": null,
+  "explanation_available": false,
+  "reason": null
+}

@@ -1,0 +1,11 @@
+{
+  "completed_model_fits": 18,
+  "total_runtime_seconds": 12.458115933000045,
+  "internal_selected_configuration": "F5",
+  "best_february_configuration": "ORIGINAL",
+  "best_february_mae": 54.65611060642733,
+  "original_validation_mae": 54.65611060642733,
+  "b3_validation_mae": 55.07142857142857,
+  "test_used": false,
+  "production_export": false
+}
