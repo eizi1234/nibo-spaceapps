@@ -7,12 +7,15 @@ export default function Logo({ className = "" }: { className?: string }) {
       style={{ fontSize: 32 }}
     >
       <span>n</span>
-      <span className="relative">
+      <span className="relative inline-block">
         ı
         <svg
           aria-hidden
           viewBox="0 0 20 20"
-          className="absolute left-1/2 top-[0.02em] size-[0.5em] -translate-x-1/2 -translate-y-full"
+          width="16"
+          height="16"
+          className="absolute block"
+          style={{ left: "50%", marginLeft: -8, bottom: "100%", marginBottom: -3 }}
         >
           <defs>
             <mask id="nibo-moon">
