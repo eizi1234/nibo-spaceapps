@@ -59,7 +59,8 @@ class FrozenArtifact:
 
     @property
     def files(self) -> tuple[Path, ...]:
-        return (self.root / "model.joblib", self.root / "model_metadata.json", self.root / "feature_schema.json")
+        result = (self.root / "model.joblib", self.root / "model_metadata.json", self.root / "feature_schema.json")
+        return result + (self.root / "decision_threshold.json",) if self.task == "fatigue" else result
 
     def unchanged(self) -> bool:
         try:
@@ -87,7 +88,9 @@ class FrozenArtifact:
                     calibration = state["calibration"]
                     frozen = self.metadata["calibration"]
                     if (calibration.threshold != frozen["threshold"]
-                            or bool(calibration.probability_verified) != bool(frozen["probability_verified"])):
+                            or calibration.method != frozen["method"]
+                            or calibration.probability_verified != frozen["probability_verified"]
+                            or state["metadata"].get("calibration") != frozen):
                         raise ArtifactError("artifact_identity_invalid")
                     self.runtime = state
                 else:
@@ -127,6 +130,8 @@ def _check_environment(metadata: dict, task: str) -> None:
 def _inspect(task: str, path: str, digest: str) -> FrozenArtifact:
     root = Path(path).expanduser().resolve()
     files = (root / "model.joblib", root / "model_metadata.json", root / "feature_schema.json")
+    if task == "fatigue":
+        files += (root / "decision_threshold.json",)
     if not all(p.is_file() for p in files):
         raise ArtifactError("artifact_files_missing")
     if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
@@ -144,6 +149,10 @@ def _inspect(task: str, path: str, digest: str) -> FrozenArtifact:
         fixture = metadata.get("software_fixture")
         calibration = metadata.get("calibration", {})
         if not isinstance(calibration.get("probability_verified"), bool) or not isinstance(calibration.get("threshold"), (int, float)):
+            raise ArtifactError("artifact_identity_invalid")
+        threshold = read_json(root / "decision_threshold.json")
+        scale = "calibrated_probability" if calibration["probability_verified"] else "risk_score"
+        if threshold.get("threshold") != calibration["threshold"] or threshold.get("score_scale") != scale:
             raise ArtifactError("artifact_identity_invalid")
     else:
         ordered = metadata.get("ordered_features", [])
@@ -174,5 +183,5 @@ def configured_artifact(task: str) -> FrozenArtifact:
         return artifact
     except ArtifactError:
         raise
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         raise ArtifactError("artifact_identity_invalid") from exc
